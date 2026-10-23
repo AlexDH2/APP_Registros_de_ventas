@@ -45,8 +45,9 @@ export default function AdminDashboard() {
 
       const { data: ventas, error: ventasError } = await supabase
         .from('ventas')
-        .select('sede_id, monto')
-        .gte('fecha', hoy.toISOString());
+        .select('sede_id, monto, estado')
+        .gte('fecha', hoy.toISOString())
+        .neq('estado', 'ANULADA');
       
       if (ventasError) throw ventasError;
 

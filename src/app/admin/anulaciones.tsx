@@ -38,27 +38,49 @@ export default function AdminAnulacionesScreen() {
     setProcessing(solicitud.id);
     try {
       if (accion === 'APROBADA') {
-        // 1. Marcar venta como ANULADA
-        await supabase.from('ventas').update({ estado: 'ANULADA' }).eq('id', solicitud.ventas.id);
+        // 1. Marcar venta como ANULADA y asegurar motivo
+        try {
+          await supabase.from('ventas').update({ 
+            estado: 'ANULADA',
+            motivo_anulacion: solicitud.motivo
+          }).eq('id', solicitud.ventas.id);
+        } catch {
+          await supabase.from('ventas').update({ estado: 'ANULADA' }).eq('id', solicitud.ventas.id);
+        }
         
-        // 2. Devolver inventario a la sede
-        if (solicitud.ventas.agua_vendida > 0 || solicitud.ventas.gatorade_vendida > 0) {
-          const { data: inv } = await supabase.from('inventario_bebidas').select('*').eq('sede_id', solicitud.ventas.sede_id).single();
+        // 2. Devolver inventario a la sede (garantiza que la anulación no disminuya material)
+        const cantAgua = Number(solicitud.ventas.agua_vendida) || 0;
+        const cantGat = Number(solicitud.ventas.gatorade_vendida) || 0;
+
+        if (cantAgua > 0 || cantGat > 0) {
+          const { data: inv } = await supabase
+            .from('inventario_bebidas')
+            .select('*')
+            .eq('sede_id', solicitud.ventas.sede_id)
+            .maybeSingle();
+
           if (inv) {
             await supabase.from('inventario_bebidas').update({
-              agua_cantidad: inv.agua_cantidad + solicitud.ventas.agua_vendida,
-              gatorade_cantidad: inv.gatorade_cantidad + solicitud.ventas.gatorade_vendida
+              agua_cantidad: inv.agua_cantidad + cantAgua,
+              gatorade_cantidad: inv.gatorade_cantidad + cantGat
             }).eq('id', inv.id);
           }
         }
+      } else {
+        // Si el Administrador la rechaza, la venta vuelve a estado COMPLETADA
+        await supabase.from('ventas').update({ estado: 'COMPLETADA' }).eq('id', solicitud.ventas.id);
       }
 
       // 3. Actualizar estado de la solicitud
       await supabase.from('anulaciones').update({ estado: accion }).eq('id', solicitud.id);
       
-      Alert.alert('Éxito', `Solicitud ${accion.toLowerCase()}`);
+      const mensaje = accion === 'APROBADA'
+        ? `✅ Solicitud APROBADA.\n\nLa venta pasó a estado ANULADA (no suma a ganancias) y se reintegraron las bebidas al inventario de la sede.`
+        : `Solicitud RECHAZADA.\n\nLa venta se mantiene activa en estado COMPLETADA.`;
+
+      Alert.alert('Auditoría de Ventas', mensaje);
       loadData();
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Ocurrió un problema procesando la solicitud');
     } finally {
       setProcessing(null);

@@ -75,10 +75,11 @@ export default function HomeScreen() {
       if (error) throw error;
 
       if (data && data.length > 0) {
-        // Filtrar ventas del día o recientes (máximo 16 horas) que contengan bebidas
+        // Filtrar ventas del día o recientes (máximo 16 horas) que contengan bebidas y estén COMPLETADAS
         const valid = data.filter(v => {
           const diffHours = (Date.now() - new Date(v.fecha).getTime()) / (1000 * 60 * 60);
-          return diffHours < 16 && ((v.agua_vendida || 0) > 0 || (v.gatorade_vendida || 0) > 0);
+          const isCompletada = v.estado === 'COMPLETADA' || !v.estado;
+          return isCompletada && diffHours < 16 && ((v.agua_vendida || 0) > 0 || (v.gatorade_vendida || 0) > 0);
         }).slice(0, 5);
 
         setUltimasVentas(valid);

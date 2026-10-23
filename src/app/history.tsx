@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, Alert, TouchableOp
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Clock, Smartphone, User, FileText, Image as ImageIcon, XCircle, RefreshCw } from 'lucide-react-native';
+import { Clock, Smartphone, User, FileText, Image as ImageIcon, XCircle, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react-native';
 
 type Venta = {
   id: number;
@@ -13,10 +13,12 @@ type Venta = {
   vendedor: string;
   metodo_pago: string;
   url_captura: string;
-  estado: string;
+  estado: string; // 'COMPLETADA' | 'SOLICITADA_ANULACION' | 'ANULADA'
+  motivo_anulacion?: string;
   agua_vendida?: number;
   gatorade_vendida?: number;
   sede_id?: number;
+  anulaciones?: { motivo: string; estado: string }[] | { motivo: string; estado: string };
 };
 
 export default function HistoryScreen() {
@@ -43,17 +45,30 @@ export default function HistoryScreen() {
       const { data: config } = await supabase.from('configuracion_precios').select('precio_agua, precio_gatorade').single();
       if (config) setPrecios({ agua: config.precio_agua, gatorade: config.precio_gatorade });
 
-      // Cargar ventas de la sede
-      const query = supabase
+      // Cargar ventas de la sede incluyendo posibles anulaciones vinculadas
+      let dataVentas: any[] = [];
+      const { data, error } = await supabase
         .from('ventas')
-        .select('*')
+        .select('*, anulaciones(motivo, estado)')
         .eq('sede_id', sedeId)
         .order('fecha', { ascending: false })
         .limit(100);
 
-      const { data, error } = await query;
-      if (error) throw error;
-      setVentas(data || []);
+      if (error) {
+        // Fallback si la relación de clave foránea requiere select básico
+        const { data: fallbackData, error: fbError } = await supabase
+          .from('ventas')
+          .select('*')
+          .eq('sede_id', sedeId)
+          .order('fecha', { ascending: false })
+          .limit(100);
+        if (fbError) throw fbError;
+        dataVentas = fallbackData || [];
+      } else {
+        dataVentas = data || [];
+      }
+
+      setVentas(dataVentas);
     } catch {
       Alert.alert('Error', 'No se pudo cargar el historial');
     } finally {
@@ -195,103 +210,234 @@ export default function HistoryScreen() {
   };
 
   const solicitarAnulacion = async () => {
-    if (!motivoAnulacion.trim()) return Alert.alert('Aviso', 'Escribe el motivo de la anulación');
+    const cleanMotivo = motivoAnulacion.trim();
+    if (!cleanMotivo) return Alert.alert('Aviso', 'Escribe el motivo de la anulación');
     setSolicitando(true);
     try {
       const usuarioIdStr = await AsyncStorage.getItem('usuario_id');
       const usuarioId = parseInt(usuarioIdStr || '0');
 
-      const { error } = await supabase.from('anulaciones').insert([{
+      // 1. Insertar solicitud en anulaciones
+      const { error: anulError } = await supabase.from('anulaciones').insert([{
         venta_id: ventaAnular?.id,
         usuario_solicitante_id: usuarioId,
-        motivo: motivoAnulacion
+        motivo: cleanMotivo,
+        estado: 'PENDIENTE'
       }]);
 
-      if (error && error.code === '23505') {
+      if (anulError && anulError.code === '23505') {
         throw new Error('Esta venta ya tiene una solicitud de anulación pendiente.');
-      } else if (error) throw error;
+      } else if (anulError) {
+        throw anulError;
+      }
 
-      Alert.alert('Éxito', 'Solicitud enviada al administrador.');
+      // 2. Actualizar estado de la venta a SOLICITADA_ANULACION y guardar el motivo
+      try {
+        await supabase
+          .from('ventas')
+          .update({
+            estado: 'SOLICITADA_ANULACION',
+            motivo_anulacion: cleanMotivo
+          })
+          .eq('id', ventaAnular?.id);
+      } catch {
+        await supabase
+          .from('ventas')
+          .update({ estado: 'SOLICITADA_ANULACION' })
+          .eq('id', ventaAnular?.id);
+      }
+
+      Alert.alert(
+        'Solicitud Enviada', 
+        '✅ Se registró la solicitud de anulación (Estado: Solicitud de Anulación Creada).\n\nEl Administrador la revisará para confirmar la anulación.'
+      );
       setVentaAnular(null);
       setMotivoAnulacion('');
+      fetchHistory();
     } catch (e: any) {
-      Alert.alert('Error', e.message);
+      Alert.alert('Error', e.message || 'No se pudo enviar la solicitud de anulación');
     } finally {
       setSolicitando(false);
     }
+  };
+
+  const getMotivo = (item: Venta): string => {
+    if (item.motivo_anulacion) return item.motivo_anulacion;
+    if (Array.isArray(item.anulaciones) && item.anulaciones.length > 0) {
+      return item.anulaciones[0]?.motivo || '';
+    }
+    if (item.anulaciones && typeof item.anulaciones === 'object') {
+      return (item.anulaciones as any).motivo || '';
+    }
+    return '';
   };
 
   const ventasFiltradas = ventas.filter(v => 
     metodoFiltro === 'Todos' || v.metodo_pago === metodoFiltro
   );
 
-  const renderItem = ({ item }: { item: Venta }) => (
-    <View style={[styles.card, item.estado === 'ANULADA' && styles.cardAnulada]}>
-      <View style={styles.cardHeader}>
-        <View style={styles.timeBadge}>
-          <Clock color="#64748b" size={14} />
-          <Text style={styles.timeText}>
-            {new Date(item.fecha).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
-          </Text>
+  const renderItem = ({ item }: { item: Venta }) => {
+    const isAnulada = item.estado === 'ANULADA';
+    const isSolicitada = item.estado === 'SOLICITADA_ANULACION';
+    const isCompletada = !isAnulada && !isSolicitada;
+    const motivoTexto = getMotivo(item);
+
+    return (
+      <View style={[
+        styles.card, 
+        isAnulada && styles.cardAnulada,
+        isSolicitada && styles.cardSolicitada
+      ]}>
+        
+        {/* Cabecera de la tarjeta: Estado y Monto */}
+        <View style={styles.cardHeader}>
+          <View style={styles.headerLeftCol}>
+            <View style={styles.timeBadge}>
+              <Clock color="#64748b" size={13} />
+              <Text style={styles.timeText}>
+                {new Date(item.fecha).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}
+              </Text>
+            </View>
+
+            {/* Badges de los 3 Estados */}
+            {isAnulada && (
+              <View style={styles.badgeAnulada}>
+                <XCircle color="#b91c1c" size={12} />
+                <Text style={styles.badgeAnuladaText}>VENTA ANULADA</Text>
+              </View>
+            )}
+
+            {isSolicitada && (
+              <View style={styles.badgeSolicitada}>
+                <Clock color="#b45309" size={12} />
+                <Text style={styles.badgeSolicitadaText}>SOLICITUD DE ANULACIÓN CREADA</Text>
+              </View>
+            )}
+
+            {isCompletada && (
+              <View style={styles.badgeCompletada}>
+                <CheckCircle color="#15803d" size={12} />
+                <Text style={styles.badgeCompletadaText}>VENTA REALIZADA</Text>
+              </View>
+            )}
+          </View>
+
+          {/* Visualización del Monto */}
+          <View style={styles.headerRightCol}>
+            <Text style={[
+              styles.monto,
+              isAnulada && styles.montoAnulada,
+              isSolicitada && styles.montoSolicitada
+            ]}>
+              S/ {Number(item.monto || 0).toFixed(2)}
+            </Text>
+            {isAnulada && (
+              <Text style={styles.montoSubAnulada}>S/ 0.00 neto</Text>
+            )}
+          </View>
         </View>
-        <Text style={[styles.monto, item.estado === 'ANULADA' && { textDecorationLine: 'line-through', color: '#94a3b8' }]}>
-          S/ {item.monto?.toFixed(2) || '0.00'}
+
+        {/* Motivo escrito para Solicitadas y Anuladas */}
+        {isAnulada && (
+          <View style={styles.motivoBoxAnulada}>
+            <View style={styles.motivoHeaderRow}>
+              <XCircle color="#ef4444" size={15} />
+              <Text style={styles.motivoTitleAnulada}>Motivo de la anulación:</Text>
+            </View>
+            <Text style={styles.motivoTextAnulada}>"{motivoTexto || 'Sin motivo registrado'}"</Text>
+            <Text style={styles.motivoNeutralidadNote}>
+              ℹ️ Venta anulada: no incrementa ganancias ni disminuye material.
+            </Text>
+          </View>
+        )}
+
+        {isSolicitada && (
+          <View style={styles.motivoBoxSolicitada}>
+            <View style={styles.motivoHeaderRow}>
+              <AlertCircle color="#d97706" size={15} />
+              <Text style={styles.motivoTitleSolicitada}>Motivo de solicitud:</Text>
+            </View>
+            <Text style={styles.motivoTextSolicitada}>"{motivoTexto || 'Esperando revisión'}"</Text>
+            <Text style={styles.motivoSolicitadaNote}>
+              ⏳ En revisión por administración para confirmar anulación.
+            </Text>
+          </View>
+        )}
+
+        {/* Descripción de productos */}
+        <Text style={[styles.descripcion, isAnulada && styles.descripcionAnulada]}>
+          {item.descripcion}
         </Text>
-      </View>
-      
-      {item.estado === 'ANULADA' && <Text style={styles.anuladaBadge}>ANULADA</Text>}
 
-      <Text style={styles.descripcion}>{item.descripcion}</Text>
-
-      <View style={styles.metaRow}>
-        <View style={styles.metaItem}>
-          <User color="#94a3b8" size={16} />
-          <Text style={styles.metaText}>{item.vendedor}</Text>
+        {/* Metadatos (Vendedor y Método de Pago) */}
+        <View style={styles.metaRow}>
+          <View style={styles.metaItem}>
+            <User color="#94a3b8" size={15} />
+            <Text style={styles.metaText}>{item.vendedor}</Text>
+          </View>
+          <View style={styles.metaItem}>
+            <Smartphone color="#94a3b8" size={15} />
+            <Text style={styles.metaText}>{item.metodo_pago}</Text>
+          </View>
         </View>
-        <View style={styles.metaItem}>
-          <Smartphone color="#94a3b8" size={16} />
-          <Text style={styles.metaText}>{item.metodo_pago}</Text>
+
+        {/* Fila de Acciones */}
+        <View style={styles.actionsRow}>
+          {item.url_captura && (
+            <TouchableOpacity style={styles.imageButton} onPress={() => openImage(item.url_captura)}>
+              <ImageIcon color="#2563eb" size={15} />
+              <Text style={styles.imageButtonText}>Comprobante</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Botones de cambio rápido (Solo si la venta está REALIZADA) */}
+          {isCompletada && (item.agua_vendida || 0) > 0 && (
+            <TouchableOpacity 
+              style={[styles.swapButtonGatorade, swappingId === item.id && { opacity: 0.5 }]}
+              onPress={() => solicitarCambioProducto(item, 'agua_a_gatorade')}
+              disabled={swappingId === item.id}
+              activeOpacity={0.7}
+            >
+              <RefreshCw color="#d97706" size={13} />
+              <Text style={styles.swapButtonTextGatorade}>A Gatorade (+S/ 1)</Text>
+            </TouchableOpacity>
+          )}
+
+          {isCompletada && (item.gatorade_vendida || 0) > 0 && (
+            <TouchableOpacity 
+              style={[styles.swapButtonAgua, swappingId === item.id && { opacity: 0.5 }]}
+              onPress={() => solicitarCambioProducto(item, 'gatorade_a_agua')}
+              disabled={swappingId === item.id}
+              activeOpacity={0.7}
+            >
+              <RefreshCw color="#0284c7" size={13} />
+              <Text style={styles.swapButtonTextAgua}>A Agua (-S/ 1)</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Botón para solicitar anulación (Solo disponible si está REALIZADA) */}
+          {isCompletada && (
+            <TouchableOpacity 
+              style={styles.anularButton} 
+              onPress={() => setVentaAnular(item)}
+              activeOpacity={0.7}
+            >
+              <XCircle color="#ef4444" size={16} />
+              <Text style={styles.anularButtonText}>Anular</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Estado Informativo si ya está solicitada */}
+          {isSolicitada && (
+            <View style={styles.statusWaitBadge}>
+              <Clock color="#b45309" size={14} />
+              <Text style={styles.statusWaitText}>Pendiente Admin</Text>
+            </View>
+          )}
         </View>
       </View>
-
-      <View style={styles.actionsRow}>
-        <TouchableOpacity style={styles.imageButton} onPress={() => openImage(item.url_captura)}>
-          <ImageIcon color="#2563eb" size={16} />
-          <Text style={styles.imageButtonText}>Comprobante</Text>
-        </TouchableOpacity>
-
-        {item.estado !== 'ANULADA' && (item.agua_vendida || 0) > 0 && (
-          <TouchableOpacity 
-            style={[styles.swapButtonGatorade, swappingId === item.id && { opacity: 0.5 }]}
-            onPress={() => solicitarCambioProducto(item, 'agua_a_gatorade')}
-            disabled={swappingId === item.id}
-            activeOpacity={0.7}
-          >
-            <RefreshCw color="#d97706" size={14} />
-            <Text style={styles.swapButtonTextGatorade}>A Gatorade (+S/ 1)</Text>
-          </TouchableOpacity>
-        )}
-
-        {item.estado !== 'ANULADA' && (item.gatorade_vendida || 0) > 0 && (
-          <TouchableOpacity 
-            style={[styles.swapButtonAgua, swappingId === item.id && { opacity: 0.5 }]}
-            onPress={() => solicitarCambioProducto(item, 'gatorade_a_agua')}
-            disabled={swappingId === item.id}
-            activeOpacity={0.7}
-          >
-            <RefreshCw color="#0284c7" size={14} />
-            <Text style={styles.swapButtonTextAgua}>A Agua (-S/ 1)</Text>
-          </TouchableOpacity>
-        )}
-
-        {item.estado !== 'ANULADA' && (
-          <TouchableOpacity style={styles.anularButton} onPress={() => setVentaAnular(item)}>
-            <XCircle color="#ef4444" size={18} />
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -333,27 +479,30 @@ export default function HistoryScreen() {
         />
       )}
 
-      {/* Modal Anulación */}
+      {/* Modal Solicitud de Anulación */}
       <Modal visible={!!ventaAnular} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Solicitar Anulación</Text>
-            <Text style={styles.modalSubtitle}>Esta solicitud será enviada al administrador para su aprobación.</Text>
+            <Text style={styles.modalTitle}>Solicitar Anulación de Venta</Text>
+            <Text style={styles.modalSubtitle}>
+              Se enviará la solicitud con el motivo detallado al Administrador para su aprobación.
+            </Text>
             
             <TextInput
               style={styles.motivoInput}
-              placeholder="Escribe el motivo del error..."
+              placeholder="Escribe el motivo del error (ej. Cobro duplicado, Alumno no tenía saldo)..."
+              placeholderTextColor="#94a3b8"
               value={motivoAnulacion}
               onChangeText={setMotivoAnulacion}
               multiline
             />
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.btnCancel} onPress={() => setVentaAnular(null)}>
+              <TouchableOpacity style={styles.btnCancel} onPress={() => { setVentaAnular(null); setMotivoAnulacion(''); }}>
                 <Text style={styles.btnCancelText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.btnSubmit} onPress={solicitarAnulacion} disabled={solicitando}>
-                {solicitando ? <ActivityIndicator color="white" /> : <Text style={styles.btnSubmitText}>Enviar</Text>}
+                {solicitando ? <ActivityIndicator color="white" /> : <Text style={styles.btnSubmitText}>Crear Solicitud</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -381,37 +530,72 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   centerEmpty: { alignItems: 'center', marginTop: 60 },
   emptyText: { color: '#94a3b8', fontSize: 16, marginTop: 15 },
-  card: { backgroundColor: 'white', padding: 20, borderRadius: 16, marginBottom: 15, shadowColor: '#64748b', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2 },
-  cardAnulada: { backgroundColor: '#f8fafc', opacity: 0.7 },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  timeBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, gap: 5 },
-  timeText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
-  monto: { fontSize: 20, fontWeight: '800', color: '#10b981' },
-  anuladaBadge: { color: '#ef4444', fontWeight: 'bold', marginBottom: 5, fontSize: 12 },
-  descripcion: { fontSize: 16, color: '#334155', fontWeight: '500', marginBottom: 15 },
-  metaRow: { flexDirection: 'row', gap: 15, marginBottom: 15 },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaText: { color: '#64748b', fontSize: 14 },
   
-  actionsRow: { flexDirection: 'row', gap: 10 },
-  imageButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#eff6ff', padding: 12, borderRadius: 12, gap: 8 },
-  imageButtonText: { color: '#2563eb', fontWeight: 'bold' },
-  anularButton: { backgroundColor: '#fef2f2', padding: 12, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+  card: { backgroundColor: 'white', padding: 18, borderRadius: 16, marginBottom: 15, shadowColor: '#64748b', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 2, borderWidth: 1, borderColor: '#e2e8f0' },
+  cardAnulada: { backgroundColor: '#f8fafc', borderColor: '#fca5a5', opacity: 0.9 },
+  cardSolicitada: { backgroundColor: '#fffdf5', borderColor: '#fde68a' },
+
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
+  headerLeftCol: { gap: 6 },
+  headerRightCol: { alignItems: 'flex-end' },
+  
+  timeBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, gap: 5, alignSelf: 'flex-start' },
+  timeText: { color: '#64748b', fontSize: 12, fontWeight: '600' },
+  
+  badgeCompletada: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#dcfce7', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
+  badgeCompletadaText: { color: '#15803d', fontSize: 11, fontWeight: '700' },
+  
+  badgeSolicitada: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fef3c7', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
+  badgeSolicitadaText: { color: '#b45309', fontSize: 11, fontWeight: '700' },
+
+  badgeAnulada: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#fee2e2', paddingHorizontal: 9, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
+  badgeAnuladaText: { color: '#b91c1c', fontSize: 11, fontWeight: '700' },
+
+  monto: { fontSize: 20, fontWeight: '800', color: '#10b981' },
+  montoSolicitada: { fontSize: 20, fontWeight: '800', color: '#d97706' },
+  montoSubAnulada: { fontSize: 11, color: '#ef4444', fontWeight: '600', marginTop: 2 },
+  montoAnulada: { fontSize: 18, fontWeight: '800', color: '#94a3b8', textDecorationLine: 'line-through' },
+
+  // Cajas de Motivo
+  motivoBoxAnulada: { backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', borderRadius: 12, padding: 12, marginBottom: 12 },
+  motivoBoxSolicitada: { backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fef3c7', borderRadius: 12, padding: 12, marginBottom: 12 },
+  motivoHeaderRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 4 },
+  motivoTitleAnulada: { fontSize: 12, fontWeight: 'bold', color: '#b91c1c' },
+  motivoTitleSolicitada: { fontSize: 12, fontWeight: 'bold', color: '#b45309' },
+  motivoTextAnulada: { fontSize: 14, color: '#475569', fontStyle: 'italic', marginBottom: 4 },
+  motivoTextSolicitada: { fontSize: 14, color: '#475569', fontStyle: 'italic', marginBottom: 4 },
+  motivoNeutralidadNote: { fontSize: 11, color: '#991b1b', fontWeight: '600' },
+  motivoSolicitadaNote: { fontSize: 11, color: '#92400e', fontWeight: '500' },
+
+  descripcion: { fontSize: 15, color: '#334155', fontWeight: '500', marginBottom: 12 },
+  descripcionAnulada: { color: '#64748b' },
+  metaRow: { flexDirection: 'row', gap: 15, marginBottom: 12 },
+  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  metaText: { color: '#64748b', fontSize: 13 },
+  
+  actionsRow: { flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' },
+  imageButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#eff6ff', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, gap: 6 },
+  imageButtonText: { color: '#2563eb', fontWeight: 'bold', fontSize: 12 },
+  anularButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca', paddingVertical: 8, paddingHorizontal: 12, borderRadius: 10, gap: 5 },
+  anularButtonText: { color: '#ef4444', fontWeight: 'bold', fontSize: 12 },
+  statusWaitBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fef3c7', paddingVertical: 7, paddingHorizontal: 10, borderRadius: 10, gap: 5 },
+  statusWaitText: { color: '#b45309', fontWeight: '700', fontSize: 12 },
+
   swapButtonGatorade: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fffbeb',
     borderWidth: 1,
     borderColor: '#fef3c7',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    gap: 5,
   },
   swapButtonTextGatorade: {
     color: '#b45309',
     fontWeight: 'bold',
-    fontSize: 12,
+    fontSize: 11,
   },
   swapButtonAgua: {
     flexDirection: 'row',
@@ -419,25 +603,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#f0f9ff',
     borderWidth: 1,
     borderColor: '#e0f2fe',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    gap: 5,
   },
   swapButtonTextAgua: {
     color: '#0369a1',
     fontWeight: 'bold',
-    fontSize: 12,
+    fontSize: 11,
   },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
   modalContent: { backgroundColor: 'white', padding: 25, borderRadius: 24, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 5 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#0f172a', marginBottom: 5 },
-  modalSubtitle: { fontSize: 14, color: '#64748b', marginBottom: 20 },
-  motivoInput: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 15, height: 100, textAlignVertical: 'top', fontSize: 16, marginBottom: 20 },
+  modalSubtitle: { fontSize: 14, color: '#64748b', marginBottom: 18 },
+  motivoInput: { backgroundColor: '#f8fafc', borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 12, padding: 15, height: 100, textAlignVertical: 'top', fontSize: 15, marginBottom: 20 },
   modalButtons: { flexDirection: 'row', gap: 10 },
-  btnCancel: { flex: 1, padding: 15, backgroundColor: '#f1f5f9', borderRadius: 12, alignItems: 'center' },
+  btnCancel: { flex: 1, padding: 14, backgroundColor: '#f1f5f9', borderRadius: 12, alignItems: 'center' },
   btnCancelText: { color: '#64748b', fontWeight: 'bold' },
-  btnSubmit: { flex: 1, padding: 15, backgroundColor: '#ef4444', borderRadius: 12, alignItems: 'center' },
+  btnSubmit: { flex: 1, padding: 14, backgroundColor: '#ef4444', borderRadius: 12, alignItems: 'center' },
   btnSubmitText: { color: 'white', fontWeight: 'bold' }
 });

@@ -218,6 +218,7 @@ ALTER TABLE public.ventas ADD COLUMN IF NOT EXISTS caja_id INTEGER REFERENCES pu
 ALTER TABLE public.ventas ADD COLUMN IF NOT EXISTS monto NUMERIC(10, 2) DEFAULT 0.00;
 ALTER TABLE public.ventas ADD COLUMN IF NOT EXISTS descripcion TEXT DEFAULT 'Venta sin descripción';
 ALTER TABLE public.ventas ADD COLUMN IF NOT EXISTS vendedor TEXT DEFAULT 'Vendedor Desconocido';
+ALTER TABLE public.ventas ADD COLUMN IF NOT EXISTS motivo_anulacion TEXT;
 ALTER TABLE public.ventas ALTER COLUMN url_captura DROP NOT NULL;
 ALTER TABLE public.ventas DROP CONSTRAINT IF EXISTS ventas_estado_check;
 ALTER TABLE public.ventas ADD CONSTRAINT ventas_estado_check 

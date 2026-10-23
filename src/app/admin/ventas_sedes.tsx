@@ -22,7 +22,10 @@ import {
   Droplets,
   Zap,
   TrendingUp,
-  Search
+  Search,
+  CheckCircle,
+  XCircle,
+  Clock
 } from 'lucide-react-native';
 
 type Sede = {
@@ -37,6 +40,7 @@ type VentaItem = {
   metodo_pago: string;
   vendedor: string;
   estado: string;
+  motivo_anulacion?: string;
   agua_vendida: number;
   gatorade_vendida: number;
   sede_id: number;
@@ -83,7 +87,7 @@ export default function VentasPorSedesScreen() {
 
       let query = supabase
         .from('ventas')
-        .select('id, fecha, monto, metodo_pago, vendedor, estado, agua_vendida, gatorade_vendida, sede_id, sedes(nombre)')
+        .select('id, fecha, monto, metodo_pago, vendedor, estado, motivo_anulacion, agua_vendida, gatorade_vendida, sede_id, sedes(nombre)')
         .order('fecha', { ascending: false });
 
       if (selectedSedeId !== null) {
@@ -95,8 +99,18 @@ export default function VentasPorSedesScreen() {
       }
 
       const { data, error } = await query.limit(200);
-      if (error) throw error;
-      setVentas(data || []);
+      if (error) {
+        // Fallback por si la columna motivo_anulacion aún se propaga en el esquema
+        const { data: fbData, error: fbError } = await supabase
+          .from('ventas')
+          .select('id, fecha, monto, metodo_pago, vendedor, estado, agua_vendida, gatorade_vendida, sede_id, sedes(nombre)')
+          .order('fecha', { ascending: false })
+          .limit(200);
+        if (fbError) throw fbError;
+        setVentas(fbData || []);
+      } else {
+        setVentas(data || []);
+      }
 
     } catch (e) {
       console.log('Error loading ventas por sedes:', e);
@@ -106,10 +120,12 @@ export default function VentasPorSedesScreen() {
     }
   };
 
-  const totalRecaudado = ventas.reduce((acc, curr) => acc + (Number(curr.monto) || 0), 0);
-  const totalAgua = ventas.reduce((acc, curr) => acc + (Number(curr.agua_vendida) || 0), 0);
-  const totalGatorade = ventas.reduce((acc, curr) => acc + (Number(curr.gatorade_vendida) || 0), 0);
-  const totalTickets = ventas.length;
+  // Neutralidad de datos: las ventas ANULADAS no incrementan ganancia ni disminuyen material
+  const ventasActivas = ventas.filter(v => v.estado !== 'ANULADA');
+  const totalRecaudado = ventasActivas.reduce((acc, curr) => acc + (Number(curr.monto) || 0), 0);
+  const totalAgua = ventasActivas.reduce((acc, curr) => acc + (Number(curr.agua_vendida) || 0), 0);
+  const totalGatorade = ventasActivas.reduce((acc, curr) => acc + (Number(curr.gatorade_vendida) || 0), 0);
+  const totalTickets = ventasActivas.length;
 
   const handleExportExcel = async () => {
     if (ventas.length === 0) {
@@ -286,9 +302,18 @@ export default function VentasPorSedesScreen() {
             const isYape = v.metodo_pago === 'Yape';
             const isPlin = v.metodo_pago === 'Plin';
             const isEfectivo = v.metodo_pago === 'Efectivo';
+            const isAnulada = v.estado === 'ANULADA';
+            const isSolicitada = v.estado === 'SOLICITADA_ANULACION';
 
             return (
-              <View key={v.id} style={styles.ventaCard}>
+              <View 
+                key={v.id} 
+                style={[
+                  styles.ventaCard, 
+                  isAnulada && styles.ventaCardAnulada,
+                  isSolicitada && styles.ventaCardSolicitada
+                ]}
+              >
                 <View style={styles.ventaCardHeader}>
                   <View style={{ flex: 1, paddingRight: 8 }}>
                     <Text style={styles.ventaSede}>
@@ -298,8 +323,47 @@ export default function VentasPorSedesScreen() {
                       {fechaD.toLocaleDateString()} • {fechaD.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                   </View>
-                  <Text style={styles.ventaMonto}>S/ {Number(v.monto).toFixed(2)}</Text>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={[styles.ventaMonto, isAnulada && styles.ventaMontoAnulada]}>
+                      S/ {Number(v.monto).toFixed(2)}
+                    </Text>
+                    {isAnulada && (
+                      <Text style={styles.ventaMontoNetoCero}>S/ 0.00 neto</Text>
+                    )}
+                  </View>
                 </View>
+
+                {/* Badges de Estado */}
+                <View style={styles.estadoRow}>
+                  {isAnulada && (
+                    <View style={styles.badgeAnulada}>
+                      <XCircle color="#b91c1c" size={12} />
+                      <Text style={styles.badgeAnuladaText}>VENTA ANULADA</Text>
+                    </View>
+                  )}
+                  {isSolicitada && (
+                    <View style={styles.badgeSolicitada}>
+                      <Clock color="#b45309" size={12} />
+                      <Text style={styles.badgeSolicitadaText}>SOLICITUD DE ANULACIÓN</Text>
+                    </View>
+                  )}
+                  {!isAnulada && !isSolicitada && (
+                    <View style={styles.badgeCompletada}>
+                      <CheckCircle color="#15803d" size={12} />
+                      <Text style={styles.badgeCompletadaText}>VENTA REALIZADA</Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Motivo escrito para Anulada o Solicitada */}
+                {(isAnulada || isSolicitada) && v.motivo_anulacion && (
+                  <View style={[styles.motivoRow, isAnulada ? styles.motivoRowAnulada : styles.motivoRowSolicitada]}>
+                    <Text style={isAnulada ? styles.motivoTitleAnulada : styles.motivoTitleSolicitada}>
+                      {isAnulada ? 'Motivo de anulación:' : 'Motivo de solicitud:'}
+                    </Text>
+                    <Text style={styles.motivoTextAdmin}>"{v.motivo_anulacion}"</Text>
+                  </View>
+                )}
 
                 <View style={styles.ventaCardFooter}>
                   <View style={styles.ventaBadgesRow}>
@@ -313,16 +377,20 @@ export default function VentasPorSedesScreen() {
                     </View>
 
                     {v.agua_vendida > 0 && (
-                      <View style={styles.itemBadge}>
-                        <Droplets color="#0284c7" size={13} />
-                        <Text style={styles.itemBadgeText}>{v.agua_vendida} Agua</Text>
+                      <View style={[styles.itemBadge, isAnulada && styles.itemBadgeAnulado]}>
+                        <Droplets color={isAnulada ? "#94a3b8" : "#0284c7"} size={13} />
+                        <Text style={[styles.itemBadgeText, isAnulada && styles.itemBadgeTextAnulado]}>
+                          {v.agua_vendida} Agua {isAnulada ? '(Reintegrada)' : ''}
+                        </Text>
                       </View>
                     )}
 
                     {v.gatorade_vendida > 0 && (
-                      <View style={styles.itemBadge}>
-                        <Zap color="#d97706" size={13} />
-                        <Text style={styles.itemBadgeText}>{v.gatorade_vendida} Gat.</Text>
+                      <View style={[styles.itemBadge, isAnulada && styles.itemBadgeAnulado]}>
+                        <Zap color={isAnulada ? "#94a3b8" : "#d97706"} size={13} />
+                        <Text style={[styles.itemBadgeText, isAnulada && styles.itemBadgeTextAnulado]}>
+                          {v.gatorade_vendida} Gat. {isAnulada ? '(Reintegrada)' : ''}
+                        </Text>
                       </View>
                     )}
                   </View>
@@ -380,16 +448,37 @@ const styles = StyleSheet.create({
   emptySubtitle: { fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 4 },
 
   ventaCard: { backgroundColor: 'white', borderRadius: 16, padding: 15, marginBottom: 10, borderWidth: 1, borderColor: '#e2e8f0', shadowColor: '#64748b', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 5, elevation: 1 },
-  ventaCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
+  ventaCardAnulada: { backgroundColor: '#f8fafc', borderColor: '#fca5a5', opacity: 0.85 },
+  ventaCardSolicitada: { backgroundColor: '#fffdf5', borderColor: '#fde68a' },
+  ventaCardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   ventaSede: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
   ventaFecha: { fontSize: 12, color: '#64748b', marginTop: 2 },
   ventaMonto: { fontSize: 18, fontWeight: '900', color: '#10b981' },
+  ventaMontoAnulada: { color: '#94a3b8', textDecorationLine: 'line-through' },
+  ventaMontoNetoCero: { fontSize: 10, color: '#ef4444', fontWeight: '700', marginTop: 1 },
+
+  estadoRow: { flexDirection: 'row', marginBottom: 8 },
+  badgeAnulada: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#fee2e2', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  badgeAnuladaText: { color: '#b91c1c', fontSize: 10, fontWeight: 'bold' },
+  badgeSolicitada: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#fef3c7', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  badgeSolicitadaText: { color: '#b45309', fontSize: 10, fontWeight: 'bold' },
+  badgeCompletada: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#dcfce7', paddingHorizontal: 7, paddingVertical: 2, borderRadius: 8 },
+  badgeCompletadaText: { color: '#15803d', fontSize: 10, fontWeight: 'bold' },
+
+  motivoRow: { padding: 8, borderRadius: 8, marginBottom: 8 },
+  motivoRowAnulada: { backgroundColor: '#fef2f2', borderWidth: 1, borderColor: '#fecaca' },
+  motivoRowSolicitada: { backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fef3c7' },
+  motivoTitleAnulada: { fontSize: 11, fontWeight: 'bold', color: '#b91c1c' },
+  motivoTitleSolicitada: { fontSize: 11, fontWeight: 'bold', color: '#b45309' },
+  motivoTextAdmin: { fontSize: 12, color: '#475569', fontStyle: 'italic', marginTop: 2 },
 
   ventaCardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: '#f1f5f9', paddingTop: 10 },
   ventaBadgesRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', flex: 1 },
   metodoBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   metodoText: { color: 'white', fontSize: 11, fontWeight: 'bold' },
   itemBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f8fafc', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  itemBadgeAnulado: { backgroundColor: '#f1f5f9', borderColor: '#cbd5e1' },
   itemBadgeText: { fontSize: 11, fontWeight: '600', color: '#334155' },
+  itemBadgeTextAnulado: { color: '#94a3b8' },
   ventaVendedor: { fontSize: 11, color: '#64748b', fontWeight: '500', marginLeft: 8 }
 });

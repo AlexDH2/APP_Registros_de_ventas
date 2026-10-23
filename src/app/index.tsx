@@ -1,5 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Alert, TextInput } from 'react-native';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  Alert, 
+  TextInput,
+  Animated,
+  Keyboard,
+  Platform,
+  TouchableWithoutFeedback,
+  KeyboardAvoidingView
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
@@ -13,9 +26,36 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(true);
   const [loggingIn, setLoggingIn] = useState(false);
 
+  // Animación fluida de elevación al abrir el teclado (compatible con React 19)
+  const [translateY] = useState(() => new Animated.Value(0));
+
   useEffect(() => {
     checkSession();
-  }, []);
+
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      Animated.timing(translateY, {
+        toValue: -95,
+        duration: Platform.OS === 'ios' ? (e.duration || 260) : 220,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, (e) => {
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: Platform.OS === 'ios' ? (e.duration || 260) : 220,
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [translateY]);
 
   const checkSession = async () => {
     try {
@@ -34,7 +74,7 @@ export default function LoginScreen() {
           router.replace('/seller_sedes' as any);
         }
       }
-    } catch (e) {
+    } catch {
       // Ignorar
     } finally {
       setLoading(false);
@@ -42,6 +82,7 @@ export default function LoginScreen() {
   };
 
   const handleLogin = async () => {
+    Keyboard.dismiss();
     const cleanUsername = username.trim();
     const cleanPassword = password.trim();
 
@@ -118,81 +159,92 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        
-        <View style={styles.header}>
-          <View style={styles.iconContainer}>
-            <Store color="#2563eb" size={48} />
+      <KeyboardAvoidingView 
+        style={styles.keyboardContainer}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+          <View style={styles.touchableDismissArea}>
+            <Animated.View style={[styles.content, { transform: [{ translateY }] }]}>
+              
+              <View style={styles.header}>
+                <View style={styles.iconContainer}>
+                  <Store color="#2563eb" size={48} />
+                </View>
+                <Text style={styles.title}>Sistema POS</Text>
+                <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
+              </View>
+
+              <View style={styles.form}>
+                <View style={styles.inputGroup}>
+                  <User color="#94a3b8" size={20} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Usuario (ej. juan.perez)"
+                    placeholderTextColor="#94a3b8"
+                    value={username}
+                    onChangeText={setUsername}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Lock color="#94a3b8" size={20} style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Contraseña"
+                    placeholderTextColor="#94a3b8"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <TouchableOpacity 
+                    onPress={() => setShowPassword(!showPassword)}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                    style={styles.eyeBtn}
+                    activeOpacity={0.7}
+                  >
+                    {showPassword ? (
+                      <EyeOff color="#64748b" size={20} />
+                    ) : (
+                      <Eye color="#64748b" size={20} />
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.loginBtn, loggingIn && styles.loginBtnDisabled]} 
+                  onPress={handleLogin}
+                  disabled={loggingIn}
+                >
+                  {loggingIn ? (
+                    <ActivityIndicator color="white" />
+                  ) : (
+                    <Text style={styles.loginBtnText}>Entrar</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+            </Animated.View>
           </View>
-          <Text style={styles.title}>Sistema POS</Text>
-          <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <User color="#94a3b8" size={20} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Usuario (ej. juan.perez)"
-              placeholderTextColor="#94a3b8"
-              value={username}
-              onChangeText={setUsername}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Lock color="#94a3b8" size={20} style={styles.inputIcon} />
-            <TextInput
-              style={styles.input}
-              placeholder="Contraseña"
-              placeholderTextColor="#94a3b8"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <TouchableOpacity 
-              onPress={() => setShowPassword(!showPassword)}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              style={styles.eyeBtn}
-              activeOpacity={0.7}
-            >
-              {showPassword ? (
-                <EyeOff color="#64748b" size={20} />
-              ) : (
-                <Eye color="#64748b" size={20} />
-              )}
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity 
-            style={[styles.loginBtn, loggingIn && styles.loginBtnDisabled]} 
-            onPress={handleLogin}
-            disabled={loggingIn}
-          >
-            {loggingIn ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.loginBtnText}>Entrar</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-      </View>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
+  keyboardContainer: { flex: 1 },
+  touchableDismissArea: { flex: 1, justifyContent: 'center' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content: { flex: 1, justifyContent: 'center', padding: 25 },
-  header: { alignItems: 'center', marginBottom: 40 },
-  iconContainer: { backgroundColor: '#eff6ff', padding: 20, borderRadius: 24, marginBottom: 20 },
-  title: { fontSize: 32, fontWeight: '800', color: '#0f172a', marginBottom: 10 },
+  content: { justifyContent: 'center', padding: 25 },
+  header: { alignItems: 'center', marginBottom: 35 },
+  iconContainer: { backgroundColor: '#eff6ff', padding: 20, borderRadius: 24, marginBottom: 18 },
+  title: { fontSize: 32, fontWeight: '800', color: '#0f172a', marginBottom: 8 },
   subtitle: { fontSize: 16, color: '#64748b' },
   form: { backgroundColor: 'white', padding: 25, borderRadius: 24, shadowColor: '#64748b', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
   inputGroup: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 16, paddingHorizontal: 15, marginBottom: 15, borderWidth: 1, borderColor: '#e2e8f0' },
