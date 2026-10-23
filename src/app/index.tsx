@@ -7,6 +7,7 @@ import {
   ActivityIndicator, 
   Alert, 
   TextInput,
+  Image,
   Animated,
   Keyboard,
   Platform,
@@ -17,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { User, Lock, Store, Eye, EyeOff } from 'lucide-react-native';
+import { User, Lock, Eye, EyeOff } from 'lucide-react-native';
 
 export default function LoginScreen() {
   const [username, setUsername] = useState('');
@@ -168,11 +169,13 @@ export default function LoginScreen() {
             <Animated.View style={[styles.content, { transform: [{ translateY }] }]}>
               
               <View style={styles.header}>
-                <View style={styles.iconContainer}>
-                  <Store color="#2563eb" size={48} />
-                </View>
-                <Text style={styles.title}>Sistema POS</Text>
-                <Text style={styles.subtitle}>Inicia sesión para continuar</Text>
+                <Image
+                  source={require('../../assets/campeones_logo.png')}
+                  style={styles.logoImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.title}>Campeones Lima</Text>
+                <Text style={styles.subtitle}>Logística y Control de Ventas</Text>
               </View>
 
               <View style={styles.form}>
@@ -242,10 +245,10 @@ const styles = StyleSheet.create({
   touchableDismissArea: { flex: 1, justifyContent: 'center' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { justifyContent: 'center', padding: 25 },
-  header: { alignItems: 'center', marginBottom: 35 },
-  iconContainer: { backgroundColor: '#eff6ff', padding: 20, borderRadius: 24, marginBottom: 18 },
-  title: { fontSize: 32, fontWeight: '800', color: '#0f172a', marginBottom: 8 },
-  subtitle: { fontSize: 16, color: '#64748b' },
+  header: { alignItems: 'center', marginBottom: 25 },
+  logoImage: { width: 90, height: 90, borderRadius: 22, marginBottom: 14, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 8 },
+  title: { fontSize: 30, fontWeight: '800', color: '#0f172a', marginBottom: 6 },
+  subtitle: { fontSize: 15, color: '#64748b' },
   form: { backgroundColor: 'white', padding: 25, borderRadius: 24, shadowColor: '#64748b', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.1, shadowRadius: 20, elevation: 5 },
   inputGroup: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 16, paddingHorizontal: 15, marginBottom: 15, borderWidth: 1, borderColor: '#e2e8f0' },
   inputIcon: { marginRight: 10 },

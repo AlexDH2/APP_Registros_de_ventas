@@ -647,52 +647,98 @@ export default function LogisticaSedeScreen() {
                 </Text>
               </View>
             ) : (
-              entregasPendientes.map((item) => (
-                <View key={item.id} style={dynamicStyles.card}>
-                  <View style={styles.cardHeaderRow}>
-                    <View style={styles.pendingBadge}>
-                      <Clock color="#d97706" size={13} />
-                      <Text style={styles.pendingBadgeText}>Esperando tu Visto Bueno</Text>
+              entregasPendientes.map((item) => {
+                const isExtra = item.condicion_envio === 'CON_EXTRA' || (item.descripcion && item.descripcion.includes('[EXTRA'));
+                const isParcial = item.condicion_envio === 'PARCIAL' || (item.descripcion && item.descripcion.includes('[PARCIAL'));
+                const isCompleto = item.condicion_envio === 'COMPLETO' || (item.descripcion && item.descripcion.includes('[COMPLETO'));
+
+                return (
+                  <View key={item.id} style={dynamicStyles.card}>
+                    <View style={styles.cardHeaderRow}>
+                      <View style={styles.pendingBadge}>
+                        <Clock color="#d97706" size={13} />
+                        <Text style={styles.pendingBadgeText}>Esperando tu Visto Bueno</Text>
+                      </View>
+                      <Text style={[styles.dateText, { color: theme.textMuted }]}>
+                        {new Date(item.fecha).toLocaleDateString()}
+                      </Text>
                     </View>
-                    <Text style={[styles.dateText, { color: theme.textMuted }]}>
-                      {new Date(item.fecha).toLocaleDateString()}
+
+                    {/* Badge de Condición de Despacho */}
+                    {isExtra && (
+                      <View style={[styles.condBadge, { backgroundColor: '#f5f3ff', borderColor: '#c4b5fd' }]}>
+                        <Sparkles color="#7c3aed" size={14} />
+                        <Text style={[styles.condBadgeText, { color: '#6d28d9' }]}>
+                          🎁 Con Material Extra de Refuerzo
+                          {item.agua_diferencia > 0 || item.gatorade_diferencia > 0
+                            ? ` (+${item.agua_diferencia || 0} Agua, +${item.gatorade_diferencia || 0} Gat)`
+                            : ''}
+                        </Text>
+                      </View>
+                    )}
+
+                    {isParcial && (
+                      <View style={[styles.condBadge, { backgroundColor: '#fffbeb', borderColor: '#fde68a' }]}>
+                        <AlertOctagon color="#d97706" size={14} />
+                        <Text style={[styles.condBadgeText, { color: '#b45309' }]}>
+                          ⚠️ Despacho Parcial (Incompleto)
+                          {item.agua_diferencia > 0 || item.gatorade_diferencia > 0
+                            ? ` (Faltan: ${item.agua_diferencia > 0 ? `-${item.agua_diferencia} Agua ` : ''}${item.gatorade_diferencia > 0 ? `-${item.gatorade_diferencia} Gat` : ''})`
+                            : ''}
+                        </Text>
+                      </View>
+                    )}
+
+                    {isCompleto && (
+                      <View style={[styles.condBadge, { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }]}>
+                        <CheckCircle color="#059669" size={14} />
+                        <Text style={[styles.condBadgeText, { color: '#047857' }]}>
+                          ✅ Despacho 100% Conforme y Completo
+                        </Text>
+                      </View>
+                    )}
+
+                    <Text style={[styles.deliveryDesc, { color: theme.text }]}>
+                      {item.descripcion || 'Entrega de logística'}
                     </Text>
-                  </View>
 
-                  <Text style={[styles.deliveryDesc, { color: theme.text }]}>
-                    {item.descripcion || 'Entrega de logística'}
-                  </Text>
+                    {item.motivo_condicion ? (
+                      <Text style={[styles.motivoCondicionText, { color: theme.textMuted }]}>
+                        💬 Motivo logística: "{item.motivo_condicion}"
+                      </Text>
+                    ) : null}
 
-                  <View style={styles.quantitiesRow}>
-                    <View style={[styles.qtyBox, { backgroundColor: '#e0f2fe' }]}>
-                      <Droplets color="#0ea5e9" size={18} />
-                      <Text style={styles.qtyText}>+{item.agua_entregada} Agua</Text>
+                    <View style={styles.quantitiesRow}>
+                      <View style={[styles.qtyBox, { backgroundColor: '#e0f2fe' }]}>
+                        <Droplets color="#0ea5e9" size={18} />
+                        <Text style={styles.qtyText}>+{item.agua_entregada} Agua</Text>
+                      </View>
+                      <View style={[styles.qtyBox, { backgroundColor: '#fef3c7' }]}>
+                        <Zap color="#d97706" size={18} />
+                        <Text style={styles.qtyText}>+{item.gatorade_entregada} Gatorade</Text>
+                      </View>
                     </View>
-                    <View style={[styles.qtyBox, { backgroundColor: '#fef3c7' }]}>
-                      <Zap color="#d97706" size={18} />
-                      <Text style={styles.qtyText}>+{item.gatorade_entregada} Gatorade</Text>
-                    </View>
-                  </View>
 
-                  {item.url_foto && (
-                    <TouchableOpacity
-                      style={styles.photoLink}
-                      onPress={() => Linking.openURL(item.url_foto)}
+                    {item.url_foto && (
+                      <TouchableOpacity
+                        style={styles.photoLink}
+                        onPress={() => Linking.openURL(item.url_foto)}
+                      >
+                        <ImageIcon color={theme.primary} size={15} />
+                        <Text style={[styles.photoLinkText, { color: theme.primary }]}>Ver foto de constancia</Text>
+                      </TouchableOpacity>
+                    )}
+
+                    <AnimatedButton
+                      style={[styles.actionBtn, { backgroundColor: '#10b981', marginTop: 10 }]}
+                      onPress={() => handleConfirmarEntrega(item)}
                     >
-                      <ImageIcon color={theme.primary} size={15} />
-                      <Text style={[styles.photoLinkText, { color: theme.primary }]}>Ver foto de constancia</Text>
-                    </TouchableOpacity>
-                  )}
-
-                  <AnimatedButton
-                    style={[styles.actionBtn, { backgroundColor: '#10b981', marginTop: 10 }]}
-                    onPress={() => handleConfirmarEntrega(item)}
-                  >
-                    <Check color="white" size={18} />
-                    <Text style={styles.actionBtnText}>Confirmar y Sumar a Stock</Text>
-                  </AnimatedButton>
-                </View>
-              ))
+                      <Check color="white" size={18} />
+                      <Text style={styles.actionBtnText}>Confirmar y Sumar a Stock</Text>
+                    </AnimatedButton>
+                  </View>
+                );
+              })
             )}
           </View>
         )}
@@ -1257,5 +1303,27 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     textAlign: 'center',
     marginTop: 4,
+  },
+
+  condBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  condBadgeText: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+  },
+  motivoCondicionText: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    fontStyle: 'italic',
+    marginBottom: 10,
   },
 });

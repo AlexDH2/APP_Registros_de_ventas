@@ -258,13 +258,27 @@ CREATE TABLE IF NOT EXISTS public.entregas (
   entregado_por TEXT,
   recibido_por TEXT,
   fecha_recepcion TIMESTAMP WITH TIME ZONE,
-  observacion_recepcion TEXT
+  observacion_recepcion TEXT,
+  condicion_envio TEXT DEFAULT 'COMPLETO',
+  agua_solicitada INTEGER DEFAULT 0,
+  gatorade_solicitada INTEGER DEFAULT 0,
+  agua_diferencia INTEGER DEFAULT 0,
+  gatorade_diferencia INTEGER DEFAULT 0,
+  motivo_condicion TEXT,
+  pedido_id INTEGER REFERENCES public.pedidos_sede(id) ON DELETE SET NULL
 );
 
 ALTER TABLE public.entregas ADD COLUMN IF NOT EXISTS entregado_por TEXT;
 ALTER TABLE public.entregas ADD COLUMN IF NOT EXISTS recibido_por TEXT;
 ALTER TABLE public.entregas ADD COLUMN IF NOT EXISTS fecha_recepcion TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.entregas ADD COLUMN IF NOT EXISTS observacion_recepcion TEXT;
+ALTER TABLE public.entregas ADD COLUMN IF NOT EXISTS condicion_envio TEXT DEFAULT 'COMPLETO';
+ALTER TABLE public.entregas ADD COLUMN IF NOT EXISTS agua_solicitada INTEGER DEFAULT 0;
+ALTER TABLE public.entregas ADD COLUMN IF NOT EXISTS gatorade_solicitada INTEGER DEFAULT 0;
+ALTER TABLE public.entregas ADD COLUMN IF NOT EXISTS agua_diferencia INTEGER DEFAULT 0;
+ALTER TABLE public.entregas ADD COLUMN IF NOT EXISTS gatorade_diferencia INTEGER DEFAULT 0;
+ALTER TABLE public.entregas ADD COLUMN IF NOT EXISTS motivo_condicion TEXT;
+ALTER TABLE public.entregas ADD COLUMN IF NOT EXISTS pedido_id INTEGER REFERENCES public.pedidos_sede(id) ON DELETE SET NULL;
 ALTER TABLE public.entregas DROP CONSTRAINT IF EXISTS entregas_estado_check;
 ALTER TABLE public.entregas ADD CONSTRAINT entregas_estado_check 
   CHECK (estado IN ('PENDIENTE_RECEPCION', 'CONFIRMADA', 'RECEPCIONADO', 'RECHAZADA'));

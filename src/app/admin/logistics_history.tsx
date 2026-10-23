@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, Linking, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
-import { Truck, MapPin, Package, Image as ImageIcon } from 'lucide-react-native';
+import { Truck, MapPin, Image as ImageIcon, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react-native';
 
 export default function AdminLogisticsScreen() {
   const [entregas, setEntregas] = useState<any[]>([]);
@@ -18,13 +18,22 @@ export default function AdminLogisticsScreen() {
       const { data, error } = await supabase
         .from('entregas')
         .select(`
-          id, fecha, agua_entregada, gatorade_entregada, url_foto,
+          id, fecha, agua_entregada, gatorade_entregada, url_foto, descripcion,
+          condicion_envio, agua_solicitada, gatorade_solicitada, agua_diferencia, gatorade_diferencia, motivo_condicion,
           sedes (nombre)
         `)
         .order('fecha', { ascending: false });
 
-      if (error) throw error;
-      setEntregas(data || []);
+      if (error) {
+        // Fallback defensivo si columnas aún no están en la tabla
+        const { data: fallbackData } = await supabase
+          .from('entregas')
+          .select(`id, fecha, agua_entregada, gatorade_entregada, url_foto, descripcion, sedes (nombre)`)
+          .order('fecha', { ascending: false });
+        setEntregas(fallbackData || []);
+      } else {
+        setEntregas(data || []);
+      }
     } catch (e) {
       Alert.alert('Error', 'No se pudo cargar el historial logístico');
     } finally {
@@ -32,35 +41,83 @@ export default function AdminLogisticsScreen() {
     }
   };
 
-  const renderItem = ({ item }: { item: any }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.sedeBadge}>
-          <MapPin color="#2563eb" size={16} />
-          <Text style={styles.sedeText}>{item.sedes.nombre}</Text>
-        </View>
-        <Text style={styles.dateText}>
-          {new Date(item.fecha).toLocaleDateString()} {new Date(item.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-        </Text>
-      </View>
-      
-      <View style={styles.itemsRow}>
-        <View style={styles.itemBox}>
-          <Text style={styles.itemLabel}>Agua</Text>
-          <Text style={styles.itemValue}>+{item.agua_entregada}</Text>
-        </View>
-        <View style={styles.itemBox}>
-          <Text style={styles.itemLabel}>Gatorade</Text>
-          <Text style={styles.itemValue}>+{item.gatorade_entregada}</Text>
-        </View>
-      </View>
+  const renderItem = ({ item }: { item: any }) => {
+    const isExtra = item.condicion_envio === 'CON_EXTRA' || (item.descripcion && item.descripcion.includes('[EXTRA'));
+    const isParcial = item.condicion_envio === 'PARCIAL' || (item.descripcion && item.descripcion.includes('[PARCIAL'));
+    const isCompleto = item.condicion_envio === 'COMPLETO' || (item.descripcion && item.descripcion.includes('[COMPLETO'));
 
-      <TouchableOpacity style={styles.btnFoto} onPress={() => Linking.openURL(item.url_foto)}>
-        <ImageIcon color="#10b981" size={20} />
-        <Text style={styles.btnFotoText}>Ver Constancia Fotográfica</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.sedeBadge}>
+            <MapPin color="#2563eb" size={16} />
+            <Text style={styles.sedeText}>{item.sedes?.nombre || 'Sede'}</Text>
+          </View>
+          <Text style={styles.dateText}>
+            {new Date(item.fecha).toLocaleDateString()} {new Date(item.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+          </Text>
+        </View>
+
+        {/* Badge de Condición */}
+        {isExtra && (
+          <View style={[styles.condBadge, { backgroundColor: '#f5f3ff', borderColor: '#ddd6fe' }]}>
+            <Sparkles color="#7c3aed" size={14} />
+            <Text style={[styles.condBadgeText, { color: '#6d28d9' }]}>
+              🎁 Con Material Extra ({item.agua_diferencia > 0 ? `+${item.agua_diferencia} Agua ` : ''}{item.gatorade_diferencia > 0 ? `+${item.gatorade_diferencia} Gat` : ''})
+            </Text>
+          </View>
+        )}
+
+        {isParcial && (
+          <View style={[styles.condBadge, { backgroundColor: '#fffbeb', borderColor: '#fde68a' }]}>
+            <AlertCircle color="#d97706" size={14} />
+            <Text style={[styles.condBadgeText, { color: '#b45309' }]}>
+              ⚠️ Despacho Parcial ({item.agua_diferencia > 0 ? `Faltan -${item.agua_diferencia} Agua ` : ''}{item.gatorade_diferencia > 0 ? `Faltan -${item.gatorade_diferencia} Gat` : ''})
+            </Text>
+          </View>
+        )}
+
+        {isCompleto && (
+          <View style={[styles.condBadge, { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0' }]}>
+            <CheckCircle2 color="#059669" size={14} />
+            <Text style={[styles.condBadgeText, { color: '#047857' }]}>
+              ✅ Despacho 100% Completo
+            </Text>
+          </View>
+        )}
+
+        {item.descripcion && (
+          <Text style={styles.descText}>
+            {item.descripcion}
+          </Text>
+        )}
+
+        {item.motivo_condicion && (
+          <Text style={styles.motivoText}>
+            💬 Motivo: "{item.motivo_condicion}"
+          </Text>
+        )}
+
+        <View style={styles.itemsRow}>
+          <View style={styles.itemBox}>
+            <Text style={styles.itemLabel}>Agua</Text>
+            <Text style={styles.itemValue}>+{item.agua_entregada}</Text>
+          </View>
+          <View style={styles.itemBox}>
+            <Text style={styles.itemLabel}>Gatorade</Text>
+            <Text style={styles.itemValue}>+{item.gatorade_entregada}</Text>
+          </View>
+        </View>
+
+        {item.url_foto && (
+          <TouchableOpacity style={styles.btnFoto} onPress={() => Linking.openURL(item.url_foto)}>
+            <ImageIcon color="#10b981" size={20} />
+            <Text style={styles.btnFotoText}>Ver Constancia Fotográfica</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -105,5 +162,33 @@ const styles = StyleSheet.create({
   btnFoto: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', backgroundColor: '#ecfdf5', padding: 12, borderRadius: 12, gap: 8, borderWidth: 1, borderColor: '#d1fae5' },
   btnFotoText: { color: '#10b981', fontWeight: 'bold' },
   empty: { alignItems: 'center', marginTop: 50 },
-  emptyText: { color: '#94a3b8', marginTop: 10, fontSize: 16 }
+  emptyText: { color: '#94a3b8', marginTop: 10, fontSize: 16 },
+
+  condBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  condBadgeText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  descText: {
+    fontSize: 14,
+    color: '#334155',
+    fontWeight: '500',
+    marginBottom: 6,
+  },
+  motivoText: {
+    fontSize: 12,
+    fontStyle: 'italic',
+    color: '#64748b',
+    marginBottom: 8,
+  },
 });

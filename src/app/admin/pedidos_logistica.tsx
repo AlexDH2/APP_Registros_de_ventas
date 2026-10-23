@@ -144,10 +144,22 @@ export default function PedidosLogisticaScreen() {
             <View style={{ width: '100%', gap: 8 }}>
               <TouchableOpacity
                 style={[styles.btnAction, { backgroundColor: '#10b981', width: '100%' }]}
-                onPress={() => router.push('/delivery')}
+                onPress={() => router.push({
+                  pathname: '/delivery',
+                  params: {
+                    pedido_id: item.id.toString(),
+                    sede_id: item.sedes?.id ? item.sedes.id.toString() : '',
+                    sede_nombre: item.sedes?.nombre || '',
+                    agua_solicitada: (item.agua_solicitada ?? 0).toString(),
+                    gatorade_solicitada: (item.gatorade_solicitada ?? 0).toString(),
+                    solicitado_por: item.solicitado_por || '',
+                    urgencia: item.urgencia || 'MEDIA',
+                    notas: item.notas || ''
+                  }
+                })}
               >
                 <Truck color="white" size={17} />
-                <Text style={styles.btnActionText}>Hacer Envío con Foto a {item.sedes?.nombre || 'Sede'}</Text>
+                <Text style={styles.btnActionText}>📦 Despachar Pedido con Condiciones</Text>
               </TouchableOpacity>
 
               <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -170,13 +182,35 @@ export default function PedidosLogisticaScreen() {
           )}
 
           {item.estado === 'EN_RUTA' && (
-            <TouchableOpacity
-              style={[styles.btnAction, { backgroundColor: '#10b981', flex: 1 }]}
-              onPress={() => handleCambiarEstado(item.id, 'COMPLETADO')}
-            >
-              <CheckCircle color="white" size={16} />
-              <Text style={styles.btnActionText}>Marcar como Entregado / Completado</Text>
-            </TouchableOpacity>
+            <View style={{ width: '100%', gap: 8 }}>
+              <TouchableOpacity
+                style={[styles.btnAction, { backgroundColor: '#2563eb', width: '100%' }]}
+                onPress={() => router.push({
+                  pathname: '/delivery',
+                  params: {
+                    pedido_id: item.id.toString(),
+                    sede_id: item.sedes?.id ? item.sedes.id.toString() : '',
+                    sede_nombre: item.sedes?.nombre || '',
+                    agua_solicitada: (item.agua_solicitada ?? 0).toString(),
+                    gatorade_solicitada: (item.gatorade_solicitada ?? 0).toString(),
+                    solicitado_por: item.solicitado_por || '',
+                    urgencia: item.urgencia || 'MEDIA',
+                    notas: item.notas || ''
+                  }
+                })}
+              >
+                <Truck color="white" size={17} />
+                <Text style={styles.btnActionText}>📦 Despachar Restante / Refuerzo</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.btnAction, { backgroundColor: '#10b981', flex: 1 }]}
+                onPress={() => handleCambiarEstado(item.id, 'COMPLETADO')}
+              >
+                <CheckCircle color="white" size={16} />
+                <Text style={styles.btnActionText}>Marcar como Entregado / Completado</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           {item.estado === 'COMPLETADO' && (
