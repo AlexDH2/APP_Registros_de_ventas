@@ -384,25 +384,15 @@ WHERE NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'comprobantes');
 
 UPDATE storage.buckets SET public = true WHERE id = 'comprobantes';
 
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies 
-    WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Permitir subida comprobantes'
-  ) THEN
-    CREATE POLICY "Permitir subida comprobantes" ON storage.objects
-    FOR INSERT TO anon, authenticated
-    WITH CHECK (bucket_id = 'comprobantes');
-  END IF;
+DROP POLICY IF EXISTS "Permitir subida comprobantes" ON storage.objects;
+CREATE POLICY "Permitir subida comprobantes" ON storage.objects
+FOR INSERT TO anon, authenticated
+WITH CHECK (bucket_id = 'comprobantes');
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies 
-    WHERE schemaname = 'storage' AND tablename = 'objects' AND policyname = 'Permitir lectura comprobantes'
-  ) THEN
-    CREATE POLICY "Permitir lectura comprobantes" ON storage.objects
-    FOR SELECT TO anon, authenticated
-    USING (bucket_id = 'comprobantes');
-  END IF;
-END $$;
+DROP POLICY IF EXISTS "Permitir lectura comprobantes" ON storage.objects;
+CREATE POLICY "Permitir lectura comprobantes" ON storage.objects
+FOR SELECT TO anon, authenticated
+USING (bucket_id = 'comprobantes');
 
 -- ------------------------------------------------------------------------------
 -- 17. PERMISOS Y POLÍTICAS DE ACCESO (ROW LEVEL SECURITY)
