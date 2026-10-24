@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -44,6 +44,7 @@ export default function LogisticaSedeScreen() {
 
   const [activeTab, setActiveTab] = useState<TabType>('PEDIR');
   const [loading, setLoading] = useState(false);
+  const isActionRunningRef = useRef(false);
 
   // Sede actual y usuario
   const [sedeId, setSedeId] = useState<number | null>(null);
@@ -130,11 +131,13 @@ export default function LogisticaSedeScreen() {
 
   // 1. Enviar Pedido
   const handleEnviarPedido = async () => {
+    if (isActionRunningRef.current || loading) return;
     if (!sedeId) return Alert.alert('Error', 'Sede no identificada');
     if (aguaPedir === 0 && gatoradePedir === 0) {
       return Alert.alert('Aviso', 'Indica al menos una cantidad de Agua o Gatorade');
     }
 
+    isActionRunningRef.current = true;
     setLoading(true);
     try {
       const { error } = await supabase.from('pedidos_sede').insert([{
@@ -158,12 +161,13 @@ export default function LogisticaSedeScreen() {
       Alert.alert('Error', 'No se pudo registrar el pedido: ' + err.message);
     } finally {
       setLoading(false);
+      isActionRunningRef.current = false;
     }
   };
 
   // 2. Confirmar Recepción
   const handleConfirmarEntrega = async (entrega: any) => {
-    if (!sedeId) return;
+    if (!sedeId || isActionRunningRef.current || loading) return;
 
     Alert.alert(
       'Confirmar Recepción',
@@ -173,18 +177,32 @@ export default function LogisticaSedeScreen() {
         {
           text: 'Sí, Conforme',
           onPress: async () => {
+            if (isActionRunningRef.current || loading) return;
+            isActionRunningRef.current = true;
             setLoading(true);
             try {
-              const { error: updErr } = await supabase
+              // Bloqueo atómico en Base de Datos: Solo actualiza si aún está en PENDIENTE_RECEPCION
+              const { data: entregaConfirmada, error: updErr } = await supabase
                 .from('entregas')
                 .update({
                   estado: 'CONFIRMADA',
                   recibido_por: usuarioNombre,
                   fecha_recepcion: new Date().toISOString()
                 })
-                .eq('id', entrega.id);
+                .eq('id', entrega.id)
+                .eq('estado', 'PENDIENTE_RECEPCION')
+                .select('id');
+
               if (updErr) throw updErr;
 
+              // Si no actualizó filas, ya fue procesada previamente por otro toque o proceso
+              if (!entregaConfirmada || entregaConfirmada.length === 0) {
+                Alert.alert('Aviso', 'Esta entrega ya fue confirmada y sumada al stock anteriormente.');
+                await Promise.all([fetchEntregasPendientes(sedeId), fetchMisPedidos(sedeId)]);
+                return;
+              }
+
+              // Sumar bebidas al inventario de la sede receptora
               const { data: inv } = await supabase
                 .from('inventario_bebidas')
                 .select('*')
@@ -204,9 +222,9 @@ export default function LogisticaSedeScreen() {
                 }]);
               }
 
-              // Si esta entrega proviene de un pedido de reposición, marcarlo como COMPLETADO tras la confirmación de la sede
+              // Si esta entrega proviene de un pedido de reposición, marcarlo como COMPLETADO
               if (entrega.pedido_id) {
-                const { error: updErr } = await supabase
+                const { error: pUpdErr } = await supabase
                   .from('pedidos_sede')
                   .update({
                     estado: 'COMPLETADO',
@@ -215,8 +233,8 @@ export default function LogisticaSedeScreen() {
                   })
                   .eq('id', entrega.pedido_id);
 
-                if (updErr) {
-                  console.warn('Fallback al actualizar pedidos_sede a COMPLETADO:', updErr);
+                if (pUpdErr) {
+                  console.warn('Fallback al actualizar pedidos_sede a COMPLETADO:', pUpdErr);
                   await supabase
                     .from('pedidos_sede')
                     .update({
@@ -233,6 +251,7 @@ export default function LogisticaSedeScreen() {
               Alert.alert('Error', 'No se pudo confirmar: ' + err.message);
             } finally {
               setLoading(false);
+              isActionRunningRef.current = false;
             }
           }
         }
@@ -242,6 +261,7 @@ export default function LogisticaSedeScreen() {
 
   // 3. Reportar Merma
   const handleRegistrarMerma = async () => {
+    if (isActionRunningRef.current || loading) return;
     if (!sedeId) return;
     if (aguaMerma === 0 && gatoradeMerma === 0) {
       return Alert.alert('Aviso', 'Indica cuántas botellas se mermaron/rompieron');
@@ -250,6 +270,7 @@ export default function LogisticaSedeScreen() {
       return Alert.alert('Aviso', 'Debes ingresar un motivo o explicación');
     }
 
+    isActionRunningRef.current = true;
     setLoading(true);
     try {
       const { error: insErr } = await supabase.from('mermas').insert([{
@@ -283,17 +304,20 @@ export default function LogisticaSedeScreen() {
       Alert.alert('Error', 'No se pudo registrar la merma: ' + err.message);
     } finally {
       setLoading(false);
+      isActionRunningRef.current = false;
     }
   };
 
   // 4. Traspaso entre sedes
   const handleTransferir = async () => {
+    if (isActionRunningRef.current || loading) return;
     if (!sedeId) return;
     if (!sedeDestinoId) return Alert.alert('Aviso', 'Selecciona la sede destino');
     if (aguaTraspaso === 0 && gatoradeTraspaso === 0) {
       return Alert.alert('Aviso', 'Indica las cantidades a transferir');
     }
 
+    isActionRunningRef.current = true;
     setLoading(true);
     try {
       const { data: invOrigen } = await supabase
@@ -304,6 +328,7 @@ export default function LogisticaSedeScreen() {
 
       if (!invOrigen || invOrigen.agua_cantidad < aguaTraspaso || invOrigen.gatorade_cantidad < gatoradeTraspaso) {
         setLoading(false);
+        isActionRunningRef.current = false;
         return Alert.alert('Stock Insuficiente', 'No tienes suficiente stock en esta sede para transferir esa cantidad.');
       }
 
@@ -351,6 +376,7 @@ export default function LogisticaSedeScreen() {
       Alert.alert('Error', 'No se pudo realizar el traspaso: ' + err.message);
     } finally {
       setLoading(false);
+      isActionRunningRef.current = false;
     }
   };
 
@@ -609,6 +635,7 @@ export default function LogisticaSedeScreen() {
               <AnimatedButton
                 style={[styles.actionBtn, { backgroundColor: theme.primary, marginTop: 20 }]}
                 onPress={handleEnviarPedido}
+                disabled={loading}
               >
                 <Send color="white" size={18} />
                 <Text style={styles.actionBtnText}>Enviar Pedido a Logística</Text>
@@ -755,6 +782,7 @@ export default function LogisticaSedeScreen() {
                     <AnimatedButton
                       style={[styles.actionBtn, { backgroundColor: '#10b981', marginTop: 10 }]}
                       onPress={() => handleConfirmarEntrega(item)}
+                      disabled={loading}
                     >
                       <Check color="white" size={18} />
                       <Text style={styles.actionBtnText}>Confirmar y Sumar a Stock</Text>
@@ -872,6 +900,7 @@ export default function LogisticaSedeScreen() {
               <AnimatedButton
                 style={[styles.actionBtn, { backgroundColor: '#ef4444', marginTop: 20 }]}
                 onPress={handleRegistrarMerma}
+                disabled={loading}
               >
                 <AlertOctagon color="white" size={18} />
                 <Text style={styles.actionBtnText}>Registrar Baja y Descontar</Text>
@@ -985,6 +1014,7 @@ export default function LogisticaSedeScreen() {
               <AnimatedButton
                 style={[styles.actionBtn, { backgroundColor: '#8b5cf6', marginTop: 20 }]}
                 onPress={handleTransferir}
+                disabled={loading}
               >
                 <ArrowRightLeft color="white" size={18} />
                 <Text style={styles.actionBtnText}>Realizar Transferencia</Text>

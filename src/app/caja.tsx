@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -14,6 +14,7 @@ export default function CajaScreen() {
   const [montoFisico, setMontoFisico] = useState('');
   const [ventasEfectivo, setVentasEfectivo] = useState(0);
   const [saving, setSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   useEffect(() => {
     checkCaja();
@@ -60,9 +61,11 @@ export default function CajaScreen() {
   };
 
   const abrirCaja = async () => {
+    if (isSavingRef.current || saving) return;
     const apertura = parseFloat(montoApertura);
     if (isNaN(apertura) || apertura < 0) return Alert.alert('Aviso', 'Ingresa un monto de apertura válido');
     
+    isSavingRef.current = true;
     setSaving(true);
     try {
       const sedeId = await AsyncStorage.getItem('sede_id');
@@ -86,14 +89,17 @@ export default function CajaScreen() {
     } catch {
       Alert.alert('Error', 'No se pudo abrir la caja');
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
 
   const cerrarCaja = async () => {
+    if (isSavingRef.current || saving) return;
     const declarado = parseFloat(montoFisico);
     if (isNaN(declarado) || declarado < 0) return Alert.alert('Aviso', 'Ingresa un monto físico válido');
     
+    isSavingRef.current = true;
     setSaving(true);
     try {
       const sistema = Number(caja.monto_apertura) + ventasEfectivo;
@@ -121,6 +127,7 @@ export default function CajaScreen() {
     } catch (e) {
       Alert.alert('Error', 'No se pudo cerrar la caja');
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };

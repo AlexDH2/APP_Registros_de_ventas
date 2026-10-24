@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,7 @@ export default function PedidosLogisticaScreen() {
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filtro, setFiltro] = useState<'PENDIENTE' | 'EN_RUTA' | 'COMPLETADO' | 'TODOS'>('PENDIENTE');
+  const isUpdatingRef = useRef(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -67,6 +68,8 @@ export default function PedidosLogisticaScreen() {
   };
 
   const handleCambiarEstado = async (pedidoId: number, nuevoEstado: string) => {
+    if (isUpdatingRef.current) return;
+    isUpdatingRef.current = true;
     try {
       const { error } = await supabase
         .from('pedidos_sede')
@@ -81,6 +84,8 @@ export default function PedidosLogisticaScreen() {
       loadPedidos();
     } catch (err: any) {
       Alert.alert('Error', 'No se pudo actualizar: ' + err.message);
+    } finally {
+      isUpdatingRef.current = false;
     }
   };
 

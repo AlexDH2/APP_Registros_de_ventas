@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -83,6 +83,7 @@ export default function DeliveryScreen() {
   const [usuarioNombre, setUsuarioNombre] = useState('Logística Central');
   const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [saving, setSaving] = useState(false);
+  const isSavingRef = useRef(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -243,6 +244,7 @@ export default function DeliveryScreen() {
   };
 
   const guardarEntrega = async () => {
+    if (isSavingRef.current || saving) return;
     if (!sedeDestino) return Alert.alert('Aviso', 'Selecciona la sede receptora del despacho');
     if (!descripcion.trim()) return Alert.alert('Aviso', 'Ingresa una descripción del despacho');
     if (aguaEntregada === 0 && gatoradeEntregada === 0) {
@@ -284,6 +286,7 @@ export default function DeliveryScreen() {
       }
     }
 
+    isSavingRef.current = true;
     setSaving(true);
     try {
       // 1. Re-validar stock fresco en Almacén Central
@@ -291,6 +294,7 @@ export default function DeliveryScreen() {
       if (centralFresco) {
         if (aguaEntregada > centralFresco.agua_stock || gatoradeEntregada > centralFresco.gatorade_stock) {
           setSaving(false);
+          isSavingRef.current = false;
           return Alert.alert('Stock Insuficiente', 'El stock de oficina cambió recientemente y no cubre esta cantidad.');
         }
       }
@@ -413,6 +417,7 @@ export default function DeliveryScreen() {
     } catch (error: any) {
       Alert.alert('Error al Registrar', error.message || 'Ocurrió un problema inesperado.');
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };

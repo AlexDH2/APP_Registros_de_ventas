@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, Image, ActivityIndicator, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,6 +19,7 @@ export default function SaleScreen() {
   const [gatoradeVendida, setGatoradeVendida] = useState(0);
   const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [saving, setSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   // Precios dinámicos e Inventario
   const [PRECIO_AGUA, setPrecioAgua] = useState(2);
@@ -70,6 +71,7 @@ export default function SaleScreen() {
   };
 
   const guardarVenta = async () => {
+    if (isSavingRef.current || saving) return;
     if (totalCobrar === 0) return Alert.alert('Aviso', 'Añade al menos una bebida');
     if (!metodoPago) return Alert.alert('Aviso', 'Selecciona un método de pago');
     if (metodoPago === 'Transferencia' && !banco) return Alert.alert('Aviso', 'Selecciona el banco destino');
@@ -89,6 +91,7 @@ export default function SaleScreen() {
       return Alert.alert('⚠️ Stock Insuficiente', `Intentas vender ${gatoradeVendida} botellas de Gatorade, pero solo quedan ${stockGatorade} en stock.`);
     }
 
+    isSavingRef.current = true;
     setSaving(true);
     try {
       const savedSedeId = await AsyncStorage.getItem('sede_id');
@@ -191,6 +194,7 @@ export default function SaleScreen() {
       }
 
     } finally {
+      isSavingRef.current = false;
       setSaving(false);
     }
   };
