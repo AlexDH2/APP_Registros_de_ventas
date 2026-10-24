@@ -58,16 +58,68 @@ export default function SaleScreen() {
     }
   };
 
-  const pickImage = async () => {
+  const tomarFotoCamara = async () => {
+    const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert('Permiso Requerido', 'Necesitas permitir el acceso a la cámara para fotografiar el comprobante.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.6,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      setImage(result.assets[0]);
+    }
+  };
+
+  const elegirDeGaleria = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert('Permiso Requerido', 'Necesitas permitir el acceso a la galería para adjuntar el comprobante.');
+      return;
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
-      quality: 0.5,
-      base64: true
+      quality: 0.6,
+      base64: true,
     });
-    if (!result.canceled) {
+
+    if (!result.canceled && result.assets && result.assets[0]) {
       setImage(result.assets[0]);
     }
+  };
+
+  const pickImage = () => {
+    Alert.alert(
+      'Comprobante de Pago',
+      'Elige el origen del comprobante (Yape, Plin o Transferencia):',
+      [
+        {
+          text: '📷 Tomar Foto con Cámara',
+          onPress: tomarFotoCamara,
+        },
+        {
+          text: '🖼️ Elegir de Galería',
+          onPress: elegirDeGaleria,
+        },
+        ...(image ? [{
+          text: '🗑️ Quitar Comprobante',
+          style: 'destructive' as const,
+          onPress: () => setImage(null)
+        }] : []),
+        {
+          text: 'Cancelar',
+          style: 'cancel' as const,
+        },
+      ]
+    );
   };
 
   const guardarVenta = async () => {
@@ -323,8 +375,8 @@ export default function SaleScreen() {
               ) : (
                 <View style={styles.imagePlaceholder}>
                   <Camera color="#94a3b8" size={40} />
-                  <Text style={styles.imagePickerText}>Toca para tomar foto</Text>
-                  <Text style={styles.imagePickerSubtext}>Obligatorio para registrar la venta</Text>
+                  <Text style={styles.imagePickerText}>Toca para tomar foto o elegir de galería</Text>
+                  <Text style={styles.imagePickerSubtext}>Captura o foto de comprobante obligatoria</Text>
                 </View>
               )}
             </TouchableOpacity>

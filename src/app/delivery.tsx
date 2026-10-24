@@ -224,10 +224,10 @@ export default function DeliveryScreen() {
   const stockInsuficienteAgua = centralStock ? aguaEntregada > centralStock.agua : false;
   const stockInsuficienteGat = centralStock ? gatoradeEntregada > centralStock.gatorade : false;
 
-  const pickImage = async () => {
+  const tomarFotoCamara = async () => {
     const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
     if (permissionResult.granted === false) {
-      Alert.alert('Aviso', 'Necesitas dar permisos de cámara para tomar la foto.');
+      Alert.alert('Permiso Requerido', 'Necesitas permitir el acceso a la cámara para tomar fotos de las entregas.');
       return;
     }
 
@@ -238,9 +238,54 @@ export default function DeliveryScreen() {
       base64: true,
     });
 
-    if (!result.canceled && result.assets[0]) {
+    if (!result.canceled && result.assets && result.assets[0]) {
       setImage(result.assets[0]);
     }
+  };
+
+  const elegirDeGaleria = async () => {
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (permissionResult.granted === false) {
+      Alert.alert('Permiso Requerido', 'Necesitas permitir el acceso a tu galería para adjuntar fotos de entrega.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      setImage(result.assets[0]);
+    }
+  };
+
+  const pickImage = () => {
+    Alert.alert(
+      'Foto de Mercadería / Despacho',
+      'Elige el origen de la imagen:',
+      [
+        {
+          text: '📷 Tomar Foto con Cámara',
+          onPress: tomarFotoCamara,
+        },
+        {
+          text: '🖼️ Elegir de Galería',
+          onPress: elegirDeGaleria,
+        },
+        ...(image ? [{
+          text: '🗑️ Quitar Foto Actual',
+          style: 'destructive' as const,
+          onPress: () => setImage(null)
+        }] : []),
+        {
+          text: 'Cancelar',
+          style: 'cancel' as const,
+        },
+      ]
+    );
   };
 
   const guardarEntrega = async () => {
@@ -895,8 +940,8 @@ export default function DeliveryScreen() {
           ) : (
             <View style={styles.imagePlaceholder}>
               <Camera color="#94a3b8" size={40} />
-              <Text style={styles.imagePickerText}>Toca para tomar foto de la mercadería</Text>
-              <Text style={styles.imagePickerSubtext}>Constancia fotográfica obligatoria</Text>
+              <Text style={styles.imagePickerText}>Toca para tomar foto o elegir de galería</Text>
+              <Text style={styles.imagePickerSubtext}>Cámara o foto de galería</Text>
             </View>
           )}
         </TouchableOpacity>
