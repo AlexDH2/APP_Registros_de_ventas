@@ -30,7 +30,6 @@ import {
   Sparkles,
   AlertCircle,
   AlertTriangle,
-  ArrowLeft,
   Package
 } from 'lucide-react-native';
 
@@ -416,24 +415,20 @@ export default function DeliveryScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.scroll}>
 
-        {/* Header con botón atrás */}
-        <View style={styles.topBar}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <ArrowLeft color="#0f172a" size={22} />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Reparto Logístico</Text>
-            <Text style={styles.subtitle}>Despacho con control de condiciones</Text>
-          </View>
+        {/* Subtítulo informativo */}
+        <View style={styles.headerSubtitleBox}>
+          <Text style={styles.subtitle}>Despacho con control de condiciones y stock central</Text>
         </View>
 
         {/* Tarjeta de Origen y Stock de Almacén Central */}
         <View style={styles.originCard}>
           <View style={styles.originTop}>
-            <Building2 color="#0284c7" size={20} />
+            <View style={styles.originIconBox}>
+              <Building2 color="#0284c7" size={18} />
+            </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.originTitle}>Origen del Despacho</Text>
               <Text style={styles.originSub}>🏢 Oficina (Almacén Central)</Text>
@@ -441,13 +436,17 @@ export default function DeliveryScreen() {
           </View>
           {centralStock && (
             <View style={styles.stockChipRow}>
-              <View style={[styles.stockMiniChip, { backgroundColor: '#e0f2fe' }]}>
+              <View style={[styles.stockMiniChip, { backgroundColor: '#e0f2fe', borderColor: '#bae6fd' }]}>
                 <Droplets color="#0ea5e9" size={14} />
-                <Text style={styles.stockMiniText}>Stock Oficina: {centralStock.agua} Aguas</Text>
+                <Text style={styles.stockMiniText} numberOfLines={1}>
+                  Stock: <Text style={styles.stockBold}>{centralStock.agua}</Text> Aguas
+                </Text>
               </View>
-              <View style={[styles.stockMiniChip, { backgroundColor: '#fef3c7' }]}>
+              <View style={[styles.stockMiniChip, { backgroundColor: '#fef3c7', borderColor: '#fde68a' }]}>
                 <Zap color="#d97706" size={14} />
-                <Text style={styles.stockMiniText}>Stock Oficina: {centralStock.gatorade} Gat</Text>
+                <Text style={styles.stockMiniText} numberOfLines={1}>
+                  Stock: <Text style={styles.stockBold}>{centralStock.gatorade}</Text> Gat
+                </Text>
               </View>
             </View>
           )}
@@ -941,27 +940,44 @@ export default function DeliveryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
-  scroll: { padding: 20, paddingBottom: 50 },
+  scroll: { padding: 18, paddingBottom: 50 },
 
-  topBar: { flexDirection: 'row', alignItems: 'center', gap: 14, marginBottom: 20 },
-  backBtn: { backgroundColor: '#ffffff', padding: 10, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
-  title: { fontSize: 24, fontWeight: '800', color: '#0f172a' },
-  subtitle: { fontSize: 13, color: '#64748b', marginTop: 2 },
+  headerSubtitleBox: { marginBottom: 14, marginTop: 2 },
+  subtitle: { fontSize: 13, color: '#64748b', fontWeight: '500' },
 
   originCard: {
     backgroundColor: '#eff6ff',
-    padding: 16,
+    padding: 14,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#bfdbfe',
     marginBottom: 16
   },
-  originTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  originTop: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  originIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#e0f2fe',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
   originTitle: { fontSize: 11, fontWeight: '700', color: '#1e40af', textTransform: 'uppercase', letterSpacing: 0.5 },
-  originSub: { fontSize: 14, fontWeight: '800', color: '#0f172a', marginTop: 2 },
+  originSub: { fontSize: 14, fontWeight: '800', color: '#0f172a', marginTop: 1 },
   stockChipRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  stockMiniChip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  stockMiniChip: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1
+  },
   stockMiniText: { fontSize: 12, fontWeight: '600', color: '#334155' },
+  stockBold: { fontWeight: '800', color: '#0f172a' },
 
   pedidoCard: {
     backgroundColor: '#ffffff',

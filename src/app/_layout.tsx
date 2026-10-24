@@ -47,7 +47,7 @@ export default function Layout() {
         <Stack.Screen name="caja" options={{ title: 'Gestión de Caja' }} />
         <Stack.Screen name="history" options={{ title: 'Historial de Hoy' }} />
         <Stack.Screen name="summary" options={{ title: 'Resumen de Caja' }} />
-        <Stack.Screen name="delivery" options={{ title: 'Registrar Entrega' }} />
+        <Stack.Screen name="delivery" options={{ title: 'Reparto Logístico' }} />
         <Stack.Screen name="seller_sedes" options={{ title: 'Mis Sedes', headerBackVisible: false }} />
         <Stack.Screen name="logistica_sede" options={{ title: 'Logística de Sede' }} />
         <Stack.Screen name="logistica_dashboard" options={{ title: 'Panel de Logística', headerBackVisible: false }} />
