@@ -6,7 +6,7 @@ import { supabase } from '../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { decode } from 'base64-arraybuffer';
-import { Camera, CheckCircle2, Droplets, Zap, Building2, Smartphone, CircleDollarSign } from 'lucide-react-native';
+import { Camera, CheckCircle2, Droplets, Zap, Building2, Smartphone, CircleDollarSign, Image as ImageIcon, Trash2 } from 'lucide-react-native';
 import { saveOfflineSale } from '../lib/offlineSync';
 
 export default function SaleScreen() {
@@ -367,20 +367,42 @@ export default function SaleScreen() {
         )}
 
         {metodoPago !== 'Efectivo' && (
-          <>
-            <Text style={styles.sectionTitle}>Comprobante de Pago</Text>
-            <TouchableOpacity style={styles.imagePicker} onPress={pickImage} activeOpacity={0.8}>
-              {image ? (
+          <View style={{ marginTop: 10, marginBottom: 15 }}>
+            <Text style={styles.sectionTitle}>Comprobante de Pago (Obligatorio)</Text>
+            
+            {image ? (
+              <View style={styles.imagePreviewWrapper}>
                 <Image source={{ uri: image.uri }} style={styles.imagePreview} />
-              ) : (
-                <View style={styles.imagePlaceholder}>
-                  <Camera color="#94a3b8" size={40} />
-                  <Text style={styles.imagePickerText}>Toca para tomar foto o elegir de galería</Text>
-                  <Text style={styles.imagePickerSubtext}>Captura o foto de comprobante obligatoria</Text>
+                <View style={styles.imageActionsRow}>
+                  <TouchableOpacity style={styles.btnActionSmall} onPress={tomarFotoCamara}>
+                    <Camera color="#2563eb" size={16} />
+                    <Text style={styles.btnActionSmallText}>Tomar Foto</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.btnActionSmall} onPress={elegirDeGaleria}>
+                    <ImageIcon color="#059669" size={16} />
+                    <Text style={styles.btnActionSmallText}>Abrir Galería</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.btnActionSmall, styles.btnDelete]} onPress={() => setImage(null)}>
+                    <Trash2 color="#ef4444" size={16} />
+                  </TouchableOpacity>
                 </View>
-              )}
-            </TouchableOpacity>
-          </>
+              </View>
+            ) : (
+              <View style={styles.imageOptionsBox}>
+                <Text style={styles.imageOptionsHint}>Selecciona cómo deseas adjuntar el comprobante:</Text>
+                <View style={styles.imageButtonsRow}>
+                  <TouchableOpacity style={styles.btnOptionCamera} onPress={tomarFotoCamara} activeOpacity={0.85}>
+                    <Camera color="#ffffff" size={20} />
+                    <Text style={styles.btnOptionCameraText}>Tomar Foto</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.btnOptionGallery} onPress={elegirDeGaleria} activeOpacity={0.85}>
+                    <ImageIcon color="#0f172a" size={20} />
+                    <Text style={styles.btnOptionGalleryText}>Abrir Galería</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
         )}
 
         <TouchableOpacity 
@@ -435,11 +457,19 @@ const styles = StyleSheet.create({
   counterBtn: { backgroundColor: '#f1f5f9', width: 36, height: 36, justifyContent: 'center', alignItems: 'center', borderRadius: 10 },
   counterText: { fontSize: 18, fontWeight: '600', color: '#475569' },
   counterValue: { fontSize: 18, fontWeight: '700', color: '#0f172a', width: 20, textAlign: 'center' },
-  imagePicker: { height: 220, backgroundColor: '#ffffff', borderRadius: 20, overflow: 'hidden', borderWidth: 2, borderColor: '#e2e8f0', borderStyle: 'dashed', marginTop: 5, marginBottom: 30 },
-  imagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' },
-  imagePickerText: { color: '#475569', fontSize: 16, fontWeight: '600', marginTop: 15 },
-  imagePickerSubtext: { color: '#94a3b8', fontSize: 13, marginTop: 5 },
-  imagePreview: { width: '100%', height: '100%', resizeMode: 'cover' },
+  imageOptionsBox: { backgroundColor: '#ffffff', borderRadius: 20, padding: 18, borderWidth: 1.5, borderColor: '#cbd5e1', borderStyle: 'dashed', marginBottom: 20, alignItems: 'center' },
+  imageOptionsHint: { fontSize: 14, fontWeight: '600', color: '#64748b', marginBottom: 14, textAlign: 'center' },
+  imageButtonsRow: { flexDirection: 'row', gap: 12, width: '100%' },
+  btnOptionCamera: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#2563eb', paddingVertical: 14, paddingHorizontal: 12, borderRadius: 14, gap: 8, elevation: 2, shadowColor: '#2563eb', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4 },
+  btnOptionCameraText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  btnOptionGallery: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff', borderWidth: 1.5, borderColor: '#0f172a', paddingVertical: 14, paddingHorizontal: 12, borderRadius: 14, gap: 8, elevation: 1 },
+  btnOptionGalleryText: { color: '#0f172a', fontSize: 15, fontWeight: '700' },
+  imagePreviewWrapper: { backgroundColor: '#ffffff', borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 20, padding: 10 },
+  imagePreview: { width: '100%', height: 220, borderRadius: 14, resizeMode: 'cover' },
+  imageActionsRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  btnActionSmall: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5f9', paddingVertical: 10, borderRadius: 10, gap: 6 },
+  btnActionSmallText: { fontSize: 13, fontWeight: '700', color: '#334155' },
+  btnDelete: { flex: 0.35, backgroundColor: '#fee2e2' },
   submitButton: { backgroundColor: '#10b981', flexDirection: 'row', padding: 18, borderRadius: 16, justifyContent: 'center', alignItems: 'center', gap: 10, shadowColor: '#10b981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 4 },
   submitButtonDisabled: { backgroundColor: '#94a3b8', shadowOpacity: 0 },
   submitButtonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },

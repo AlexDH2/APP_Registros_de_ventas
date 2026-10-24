@@ -30,7 +30,9 @@ import {
   Sparkles,
   AlertCircle,
   AlertTriangle,
-  Package
+  Package,
+  Image as ImageIcon,
+  Trash2
 } from 'lucide-react-native';
 
 type Sede = {
@@ -934,17 +936,38 @@ export default function DeliveryScreen() {
 
         {/* Evidencia Fotográfica */}
         <Text style={styles.sectionTitle}>Evidencia Fotográfica (Obligatorio)</Text>
-        <TouchableOpacity style={styles.imagePicker} onPress={pickImage} activeOpacity={0.8}>
-          {image ? (
+        {image ? (
+          <View style={styles.imagePreviewWrapper}>
             <Image source={{ uri: image.uri }} style={styles.imagePreview} />
-          ) : (
-            <View style={styles.imagePlaceholder}>
-              <Camera color="#94a3b8" size={40} />
-              <Text style={styles.imagePickerText}>Toca para tomar foto o elegir de galería</Text>
-              <Text style={styles.imagePickerSubtext}>Cámara o foto de galería</Text>
+            <View style={styles.imageActionsRow}>
+              <TouchableOpacity style={styles.btnActionSmall} onPress={tomarFotoCamara}>
+                <Camera color="#2563eb" size={16} />
+                <Text style={styles.btnActionSmallText}>Tomar Foto</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnActionSmall} onPress={elegirDeGaleria}>
+                <ImageIcon color="#059669" size={16} />
+                <Text style={styles.btnActionSmallText}>Abrir Galería</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.btnActionSmall, styles.btnDelete]} onPress={() => setImage(null)}>
+                <Trash2 color="#ef4444" size={16} />
+              </TouchableOpacity>
             </View>
-          )}
-        </TouchableOpacity>
+          </View>
+        ) : (
+          <View style={styles.imageOptionsBox}>
+            <Text style={styles.imageOptionsHint}>Selecciona cómo deseas adjuntar la evidencia:</Text>
+            <View style={styles.imageButtonsRow}>
+              <TouchableOpacity style={styles.btnOptionCamera} onPress={tomarFotoCamara} activeOpacity={0.85}>
+                <Camera color="#ffffff" size={20} />
+                <Text style={styles.btnOptionCameraText}>Tomar Foto</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.btnOptionGallery} onPress={elegirDeGaleria} activeOpacity={0.85}>
+                <ImageIcon color="#0f172a" size={20} />
+                <Text style={styles.btnOptionGalleryText}>Abrir Galería</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Botón de Enviar Despacho */}
         <TouchableOpacity
@@ -1193,11 +1216,19 @@ const styles = StyleSheet.create({
   inputGroup: { flexDirection: 'row', alignItems: 'center' },
   input: { flex: 1, marginLeft: 12, fontSize: 14, color: '#0f172a' },
 
-  imagePicker: { height: 200, backgroundColor: '#ffffff', borderRadius: 16, overflow: 'hidden', borderWidth: 2, borderColor: '#cbd5e1', borderStyle: 'dashed', marginBottom: 24 },
-  imagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' },
-  imagePickerText: { color: '#334155', fontSize: 14, fontWeight: '600', marginTop: 12 },
-  imagePickerSubtext: { color: '#94a3b8', fontSize: 12, marginTop: 4 },
-  imagePreview: { width: '100%', height: '100%', resizeMode: 'cover' },
+  imageOptionsBox: { backgroundColor: '#ffffff', borderRadius: 16, padding: 18, borderWidth: 1.5, borderColor: '#cbd5e1', borderStyle: 'dashed', marginBottom: 24, alignItems: 'center' },
+  imageOptionsHint: { fontSize: 14, fontWeight: '600', color: '#64748b', marginBottom: 14, textAlign: 'center' },
+  imageButtonsRow: { flexDirection: 'row', gap: 12, width: '100%' },
+  btnOptionCamera: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#2563eb', paddingVertical: 14, paddingHorizontal: 12, borderRadius: 14, gap: 8, elevation: 2, shadowColor: '#2563eb', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4 },
+  btnOptionCameraText: { color: '#ffffff', fontSize: 15, fontWeight: '700' },
+  btnOptionGallery: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#ffffff', borderWidth: 1.5, borderColor: '#0f172a', paddingVertical: 14, paddingHorizontal: 12, borderRadius: 14, gap: 8, elevation: 1 },
+  btnOptionGalleryText: { color: '#0f172a', fontSize: 15, fontWeight: '700' },
+  imagePreviewWrapper: { backgroundColor: '#ffffff', borderRadius: 16, overflow: 'hidden', borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 24, padding: 10 },
+  imagePreview: { width: '100%', height: 220, borderRadius: 12, resizeMode: 'cover' },
+  imageActionsRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  btnActionSmall: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f1f5f9', paddingVertical: 10, borderRadius: 10, gap: 6 },
+  btnActionSmallText: { fontSize: 13, fontWeight: '700', color: '#334155' },
+  btnDelete: { flex: 0.35, backgroundColor: '#fee2e2' },
 
   submitButton: { backgroundColor: '#10b981', flexDirection: 'row', padding: 16, borderRadius: 14, justifyContent: 'center', alignItems: 'center', gap: 10, shadowColor: '#10b981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.25, shadowRadius: 8, elevation: 3 },
   submitButtonDisabled: { backgroundColor: '#94a3b8', shadowOpacity: 0 },
