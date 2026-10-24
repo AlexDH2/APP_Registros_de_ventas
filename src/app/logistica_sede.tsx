@@ -206,7 +206,7 @@ export default function LogisticaSedeScreen() {
 
               // Si esta entrega proviene de un pedido de reposición, marcarlo como COMPLETADO tras la confirmación de la sede
               if (entrega.pedido_id) {
-                await supabase
+                const { error: updErr } = await supabase
                   .from('pedidos_sede')
                   .update({
                     estado: 'COMPLETADO',
@@ -214,6 +214,17 @@ export default function LogisticaSedeScreen() {
                     fecha_atencion: new Date().toISOString()
                   })
                   .eq('id', entrega.pedido_id);
+
+                if (updErr) {
+                  console.warn('Fallback al actualizar pedidos_sede a COMPLETADO:', updErr);
+                  await supabase
+                    .from('pedidos_sede')
+                    .update({
+                      estado: 'COMPLETADO',
+                      fecha_atencion: new Date().toISOString()
+                    })
+                    .eq('id', entrega.pedido_id);
+                }
               }
 
               Alert.alert('¡Stock Actualizado!', 'Las bebidas han sido agregadas a tu inventario y el pedido ha quedado confirmado como COMPLETADO.');

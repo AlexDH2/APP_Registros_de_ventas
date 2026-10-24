@@ -260,6 +260,8 @@ CREATE TABLE IF NOT EXISTS public.pedidos_sede (
   fecha_atencion TIMESTAMP WITH TIME ZONE
 );
 
+ALTER TABLE public.pedidos_sede ADD COLUMN IF NOT EXISTS atendido_por TEXT;
+ALTER TABLE public.pedidos_sede ADD COLUMN IF NOT EXISTS fecha_atencion TIMESTAMP WITH TIME ZONE;
 ALTER TABLE public.pedidos_sede DROP CONSTRAINT IF EXISTS pedidos_sede_estado_check;
 ALTER TABLE public.pedidos_sede ADD CONSTRAINT pedidos_sede_estado_check 
   CHECK (estado IN ('PENDIENTE', 'APROBADO', 'EN_CAMINO', 'EN_RUTA', 'COMPLETADO', 'RECHAZADO', 'CANCELADO'));

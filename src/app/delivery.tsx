@@ -375,11 +375,23 @@ export default function DeliveryScreen() {
 
       // 6. Si hay un pedido vinculado, actualizar su estado a EN_RUTA (esperando confirmación en sede)
       if (pedidoId) {
-        await supabase.from('pedidos_sede').update({
+        const { error: updErr } = await supabase.from('pedidos_sede').update({
           estado: 'EN_RUTA',
           fecha_atencion: new Date().toISOString(),
           atendido_por: `Despachado por ${usuarioNombre}`
         }).eq('id', pedidoId);
+
+        if (updErr) {
+          console.warn('Fallo update con atendido_por, ejecutando fallback sin columna:', updErr);
+          const { error: fallbackErr } = await supabase.from('pedidos_sede').update({
+            estado: 'EN_RUTA',
+            fecha_atencion: new Date().toISOString()
+          }).eq('id', pedidoId);
+
+          if (fallbackErr) {
+            console.error('Error al actualizar pedido_sede a EN_RUTA en fallback:', fallbackErr);
+          }
+        }
       }
 
       // Mensaje de éxito descriptivo
