@@ -244,7 +244,28 @@ EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
 -- ------------------------------------------------------------------------------
--- 10. ENTREGAS / LOGÍSTICA (DOBLE CONFORMIDAD)
+-- 10. SOLICITUDES DE PEDIDOS DESDE SEDES
+-- ------------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.pedidos_sede (
+  id SERIAL PRIMARY KEY,
+  sede_id INTEGER REFERENCES public.sedes(id) ON DELETE CASCADE,
+  solicitado_por TEXT NOT NULL,
+  fecha_solicitud TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  agua_solicitada INTEGER DEFAULT 0 NOT NULL,
+  gatorade_solicitada INTEGER DEFAULT 0 NOT NULL,
+  urgencia TEXT DEFAULT 'MEDIA' CHECK (urgencia IN ('BAJA', 'MEDIA', 'ALTA')),
+  notas TEXT,
+  estado TEXT DEFAULT 'PENDIENTE',
+  atendido_por TEXT,
+  fecha_atencion TIMESTAMP WITH TIME ZONE
+);
+
+ALTER TABLE public.pedidos_sede DROP CONSTRAINT IF EXISTS pedidos_sede_estado_check;
+ALTER TABLE public.pedidos_sede ADD CONSTRAINT pedidos_sede_estado_check 
+  CHECK (estado IN ('PENDIENTE', 'APROBADO', 'EN_CAMINO', 'EN_RUTA', 'COMPLETADO', 'RECHAZADO', 'CANCELADO'));
+
+-- ------------------------------------------------------------------------------
+-- 11. ENTREGAS / LOGÍSTICA (DOBLE CONFORMIDAD Y CONDICIONES)
 -- ------------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.entregas (
   id SERIAL PRIMARY KEY,
@@ -282,27 +303,6 @@ ALTER TABLE public.entregas ADD COLUMN IF NOT EXISTS pedido_id INTEGER REFERENCE
 ALTER TABLE public.entregas DROP CONSTRAINT IF EXISTS entregas_estado_check;
 ALTER TABLE public.entregas ADD CONSTRAINT entregas_estado_check 
   CHECK (estado IN ('PENDIENTE_RECEPCION', 'CONFIRMADA', 'RECEPCIONADO', 'RECHAZADA'));
-
--- ------------------------------------------------------------------------------
--- 11. SOLICITUDES DE PEDIDOS DESDE SEDES
--- ------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.pedidos_sede (
-  id SERIAL PRIMARY KEY,
-  sede_id INTEGER REFERENCES public.sedes(id) ON DELETE CASCADE,
-  solicitado_por TEXT NOT NULL,
-  fecha_solicitud TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-  agua_solicitada INTEGER DEFAULT 0 NOT NULL,
-  gatorade_solicitada INTEGER DEFAULT 0 NOT NULL,
-  urgencia TEXT DEFAULT 'MEDIA' CHECK (urgencia IN ('BAJA', 'MEDIA', 'ALTA')),
-  notas TEXT,
-  estado TEXT DEFAULT 'PENDIENTE',
-  atendido_por TEXT,
-  fecha_atencion TIMESTAMP WITH TIME ZONE
-);
-
-ALTER TABLE public.pedidos_sede DROP CONSTRAINT IF EXISTS pedidos_sede_estado_check;
-ALTER TABLE public.pedidos_sede ADD CONSTRAINT pedidos_sede_estado_check 
-  CHECK (estado IN ('PENDIENTE', 'APROBADO', 'EN_CAMINO', 'EN_RUTA', 'COMPLETADO', 'RECHAZADO', 'CANCELADO'));
 
 -- ------------------------------------------------------------------------------
 -- 12. MERMAS Y ROTURAS DE STOCK
