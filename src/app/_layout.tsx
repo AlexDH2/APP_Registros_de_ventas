@@ -1,8 +1,6 @@
-import React, { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme, View, ActivityIndicator } from 'react-native';
-import * as Updates from 'expo-updates';
 import {
   useFonts,
   Poppins_400Regular,
@@ -16,22 +14,6 @@ import { colors } from '../theme';
 export default function Layout() {
   const colorScheme = useColorScheme();
   const theme = colorScheme === 'dark' ? colors.dark : colors.light;
-
-  useEffect(() => {
-    async function checkAutoUpdates() {
-      if (__DEV__ || !Updates.isEnabled) return;
-      try {
-        const update = await Updates.checkForUpdateAsync();
-        if (update.isAvailable) {
-          await Updates.fetchUpdateAsync();
-          await Updates.reloadAsync();
-        }
-      } catch (e) {
-        // Silencioso si no hay conexión
-      }
-    }
-    checkAutoUpdates();
-  }, []);
   
   const [fontsLoaded] = useFonts({
     Poppins_400Regular,
