@@ -204,8 +204,20 @@ export default function LogisticaSedeScreen() {
                 }]);
               }
 
-              Alert.alert('¡Stock Actualizado!', 'Las bebidas han sido agregadas a tu inventario.');
-              await fetchEntregasPendientes(sedeId);
+              // Si esta entrega proviene de un pedido de reposición, marcarlo como COMPLETADO tras la confirmación de la sede
+              if (entrega.pedido_id) {
+                await supabase
+                  .from('pedidos_sede')
+                  .update({
+                    estado: 'COMPLETADO',
+                    atendido_por: `Confirmado en sede por ${usuarioNombre} (Despacho: ${entrega.entregado_por || 'Logística'})`,
+                    fecha_atencion: new Date().toISOString()
+                  })
+                  .eq('id', entrega.pedido_id);
+              }
+
+              Alert.alert('¡Stock Actualizado!', 'Las bebidas han sido agregadas a tu inventario y el pedido ha quedado confirmado como COMPLETADO.');
+              await Promise.all([fetchEntregasPendientes(sedeId), fetchMisPedidos(sedeId)]);
             } catch (err: any) {
               Alert.alert('Error', 'No se pudo confirmar: ' + err.message);
             } finally {

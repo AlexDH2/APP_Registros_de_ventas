@@ -141,7 +141,7 @@ export default function PedidosLogisticaScreen() {
 
         <View style={styles.actionsRow}>
           {item.estado === 'PENDIENTE' && (
-            <View style={{ width: '100%', gap: 8 }}>
+            <View style={{ width: '100%' }}>
               <TouchableOpacity
                 style={[styles.btnAction, { backgroundColor: '#10b981', width: '100%' }]}
                 onPress={() => router.push({
@@ -159,30 +159,23 @@ export default function PedidosLogisticaScreen() {
                 })}
               >
                 <Truck color="white" size={17} />
-                <Text style={styles.btnActionText}>📦 Despachar Pedido con Condiciones</Text>
+                <Text style={styles.btnActionText}>📦 Despachar Pedido</Text>
               </TouchableOpacity>
-
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <TouchableOpacity
-                  style={[styles.btnAction, { backgroundColor: '#2563eb', flex: 1 }]}
-                  onPress={() => handleCambiarEstado(item.id, 'EN_RUTA')}
-                >
-                  <Text style={styles.btnActionText}>Poner en Ruta</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.btnAction, { backgroundColor: '#64748b', flex: 1 }]}
-                  onPress={() => handleCambiarEstado(item.id, 'COMPLETADO')}
-                >
-                  <CheckCircle color="white" size={16} />
-                  <Text style={styles.btnActionText}>Completado</Text>
-                </TouchableOpacity>
-              </View>
             </View>
           )}
 
           {item.estado === 'EN_RUTA' && (
-            <View style={{ width: '100%', gap: 8 }}>
+            <View style={{ width: '100%', gap: 10 }}>
+              <View style={styles.enRutaNotice}>
+                <Clock color="#2563eb" size={16} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.enRutaTitle}>🚚 En Ruta hacia Sede</Text>
+                  <Text style={styles.enRutaSub}>
+                    Esperando confirmación física del profesor o auxiliar en la sede para marcarse como COMPLETADO.
+                  </Text>
+                </View>
+              </View>
+
               <TouchableOpacity
                 style={[styles.btnAction, { backgroundColor: '#2563eb', width: '100%' }]}
                 onPress={() => router.push({
@@ -200,23 +193,22 @@ export default function PedidosLogisticaScreen() {
                 })}
               >
                 <Truck color="white" size={17} />
-                <Text style={styles.btnActionText}>📦 Despachar Restante / Refuerzo</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.btnAction, { backgroundColor: '#10b981', flex: 1 }]}
-                onPress={() => handleCambiarEstado(item.id, 'COMPLETADO')}
-              >
-                <CheckCircle color="white" size={16} />
-                <Text style={styles.btnActionText}>Marcar como Entregado / Completado</Text>
+                <Text style={styles.btnActionText}>📦 Despachar Refuerzo / Complemento</Text>
               </TouchableOpacity>
             </View>
           )}
 
           {item.estado === 'COMPLETADO' && (
-            <View style={styles.completedBadge}>
-              <CheckCircle color="#10b981" size={16} />
-              <Text style={styles.completedText}>Pedido Atendido con Éxito</Text>
+            <View style={styles.completedBadgeBox}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <CheckCircle color="#10b981" size={16} />
+                <Text style={styles.completedText}>Pedido Atendido y Confirmado en Sede</Text>
+              </View>
+              {item.atendido_por && (
+                <Text style={[styles.completedSub, { color: theme.textMuted }]}>
+                  {item.atendido_por} {item.fecha_atencion ? `• ${new Date(item.fecha_atencion).toLocaleDateString()}` : ''}
+                </Text>
+              )}
             </View>
           )}
         </View>
@@ -301,8 +293,23 @@ const styles = StyleSheet.create({
   btnAction: { flex: 1, height: 44, borderRadius: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
   btnActionText: { color: 'white', fontFamily: fonts.bold, fontSize: 13 },
 
+  enRutaNotice: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#eff6ff',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe'
+  },
+  enRutaTitle: { fontSize: 12, fontFamily: fonts.bold, color: '#1e40af' },
+  enRutaSub: { fontSize: 11, fontFamily: fonts.regular, color: '#3b82f6', marginTop: 2 },
+
+  completedBadgeBox: { paddingVertical: 4 },
   completedBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6 },
   completedText: { color: '#10b981', fontFamily: fonts.bold, fontSize: 13 },
+  completedSub: { fontSize: 11, fontFamily: fonts.regular, marginTop: 3, marginLeft: 22 },
 
   emptyContainer: { alignItems: 'center', marginTop: 50 },
   emptyTitle: { fontSize: 16, fontFamily: fonts.bold, marginTop: 12 },

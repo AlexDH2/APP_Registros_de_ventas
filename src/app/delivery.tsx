@@ -373,13 +373,12 @@ export default function DeliveryScreen() {
         }
       }
 
-      // 6. Si hay un pedido vinculado, actualizar su estado
+      // 6. Si hay un pedido vinculado, actualizar su estado a EN_RUTA (esperando confirmación en sede)
       if (pedidoId) {
-        const nuevoEstadoPedido = condicion === 'PARCIAL' ? 'EN_RUTA' : 'COMPLETADO';
         await supabase.from('pedidos_sede').update({
-          estado: nuevoEstadoPedido,
+          estado: 'EN_RUTA',
           fecha_atencion: new Date().toISOString(),
-          atendido_por: usuarioNombre
+          atendido_por: `Despachado por ${usuarioNombre}`
         }).eq('id', pedidoId);
       }
 
@@ -388,14 +387,14 @@ export default function DeliveryScreen() {
       if (condicion === 'CON_EXTRA') {
         mensajeExito += `\n\n🎁 ¡Incluye material extra de refuerzo (+${extraAgua} Aguas, +${extraGat} Gatorades)!`;
       } else if (condicion === 'PARCIAL') {
-        mensajeExito += `\n\n⚠️ Despacho parcial registrado (quedan pendientes ${faltanteAgua} Aguas y ${faltanteGat} Gatorades).`;
+        mensajeExito += `\n\n⚠️ Despacho parcial registrado en ruta (faltantes: ${faltanteAgua} Aguas, ${faltanteGat} Gatorades).`;
       } else {
-        mensajeExito += `\n\n✅ Despacho 100% completo y conforme a lo solicitado.`;
+        mensajeExito += `\n\n✅ Despacho 100% completo puesto en ruta.`;
       }
-      mensajeExito += '\n\nEl stock en la sede destino se sumará automáticamente cuando el profesor confirme la recepción física.';
+      mensajeExito += '\n\nEl pedido se marcará como COMPLETADO y las bebidas se sumarán al inventario cuando el profesor o auxiliar de la sede confirme la recepción física.';
 
       Alert.alert(
-        '¡Despacho Registrado con Éxito!',
+        '¡Despacho Puesto en Ruta!',
         mensajeExito,
         [{ text: 'OK', onPress: () => router.back() }]
       );
