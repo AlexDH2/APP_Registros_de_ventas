@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LogOut, Users, MapPin, DollarSign, TrendingUp, AlertTriangle, Truck, Building2, Inbox, Tag, Download, Plus, X } from 'lucide-react-native';
+import { LogOut, Users, MapPin, DollarSign, TrendingUp, AlertTriangle, Truck, Building2, Inbox, Tag, Download, Ticket, Plus, X } from 'lucide-react-native';
 import { confirmAndLogout } from '../../lib/auth';
 
 type SedeGlobal = {
@@ -162,6 +162,28 @@ export default function AdminDashboard() {
             <Text style={styles.reportBannerTitle}>Registro de Ventas & Excel</Text>
             <Text style={styles.reportBannerSub}>
               Ver historial separado por sedes y exportar a Excel (.csv)
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Acceso Directo: Control de Entradas & Evento (En Vivo) */}
+        <TouchableOpacity 
+          style={[styles.reportBanner, { backgroundColor: '#1e3a8a', shadowColor: '#1e3a8a', marginBottom: 26 }]} 
+          onPress={() => router.push('/admin/eventos_entradas')}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.reportIconBox, { backgroundColor: '#2563eb' }]}>
+            <Ticket color="#ffffff" size={26} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.reportBannerTitle}>Control de Entradas & Eventos</Text>
+              <View style={{ backgroundColor: '#10b981', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ color: 'white', fontSize: 10, fontWeight: '800' }}>EN VIVO</Text>
+              </View>
+            </View>
+            <Text style={styles.reportBannerSub}>
+              Monitoreo simultáneo de 5 colaboradores, aforo y boletería
             </Text>
           </View>
         </TouchableOpacity>

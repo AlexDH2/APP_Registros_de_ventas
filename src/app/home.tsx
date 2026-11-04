@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator, useColorS
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ShoppingCart, Package, LogOut, MapPin, Truck, AlertTriangle, BarChart2, WifiOff, Droplets, Zap, RefreshCw, Clock, X } from 'lucide-react-native';
+import { ShoppingCart, Package, LogOut, MapPin, Truck, AlertTriangle, BarChart2, WifiOff, Droplets, Zap, RefreshCw, Clock, Ticket, X } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { getOfflineSales, syncOfflineSales, saveOfflineSale } from '../lib/offlineSync';
 import { colors, fonts } from '../theme';
@@ -754,6 +754,27 @@ export default function HomeScreen() {
         <Text style={dynamicStyles.sectionTitle}>Operaciones</Text>
 
         <View style={styles.grid}>
+          {/* Módulo de Venta de Entradas (Evento) */}
+          <AnimatedButton
+            style={[dynamicStyles.rowCard, { borderColor: '#93c5fd', backgroundColor: '#f0f9ff', marginBottom: 12 }]}
+            onPress={() => router.push('/entradas_venta')}
+          >
+            <View style={[dynamicStyles.iconWrapperRow, { backgroundColor: '#dbeafe' }]}>
+              <Ticket color="#2563eb" size={24} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[dynamicStyles.cardTitle, { color: '#1e40af' }]}>Venta de Entradas</Text>
+                <View style={{ backgroundColor: '#2563eb', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: 'white', fontSize: 10, fontFamily: fonts.bold }}>EVENTO</Text>
+                </View>
+              </View>
+              <Text style={[dynamicStyles.cardSubtitle, { color: '#3b82f6' }]}>
+                Boletería rápida, tickets correlativos y cuadre personal
+              </Text>
+            </View>
+          </AnimatedButton>
+
           <AnimatedButton style={dynamicStyles.card} onPress={() => router.push('/sale')}>
             <View style={[dynamicStyles.iconWrapper, { backgroundColor: '#eff6ff' }]}>
               <ShoppingCart color="#2563eb" size={26} />
