@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   Share,
+  Image,
   useColorScheme,
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +18,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 import { supabase } from '../lib/supabase';
 import { colors, fonts } from '../theme';
 import AnimatedButton from '../components/AnimatedButton';
@@ -34,48 +37,40 @@ import {
   FileText,
   ArrowLeft,
   Wallet,
+  Camera,
+  ImageIcon,
+  Trash2,
+  User,
+  CreditCard as IdCard,
 } from 'lucide-react-native';
-
-type TipoEntrada = {
-  id: number;
-  nombre: string;
-  precio: number;
-  color: string;
-  activo: boolean;
-};
 
 type EventoActivo = {
   id: number;
   nombre: string;
   lugar: string;
+  precio_entrada: number;
   aforo_maximo: number | null;
   estado: string;
-};
-
-type ItemSeleccionado = {
-  tipo_entrada_id: number;
-  nombre: string;
-  precio: number;
-  cantidad: number;
-  subtotal: number;
 };
 
 type VentaRealizada = {
   id: number;
   numero_ticket_inicio: number;
   numero_ticket_fin: number;
-  cantidad_total: number;
+  cantidad: number;
+  precio_unitario: number;
   monto_total: number;
   metodo_pago: string;
+  nombre_completo?: string;
+  dni?: string;
+  url_comprobante?: string;
   colaborador_nombre: string;
   estado: string;
   fecha: string;
-  nombre_comprador?: string;
-  detalle_venta_entradas?: {
-    nombre_tipo: string;
-    cantidad: number;
-    precio_unitario: number;
-  }[];
+};
+
+const generarRutaComprobante = (eventoId: number): string => {
+  return `entradas/comp_${eventoId}_${Date.now()}.jpg`;
 };
 
 export default function EntradasVentaScreen() {
@@ -87,23 +82,23 @@ export default function EntradasVentaScreen() {
   const [colaboradorNombre, setColaboradorNombre] = useState<string>('Colaborador');
   const [activeTab, setActiveTab] = useState<'VENTA' | 'HISTORIAL' | 'CUADRE'>('VENTA');
 
-  // Evento y Tipos de Entrada
+  // Evento & Cantidad de Entrada Única
   const [evento, setEvento] = useState<EventoActivo | null>(null);
-  const [tiposEntradas, setTiposEntradas] = useState<TipoEntrada[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [cantidades, setCantidades] = useState<Record<number, number>>({});
+  const [cantidad, setCantidad] = useState<number>(1);
 
-  // Datos de Pago
+  // Asignación de Titular / Comprador (Nombre y DNI)
+  const [nombreCompleto, setNombreCompleto] = useState<string>('');
+  const [dni, setDni] = useState<string>('');
+
+  // Comprobante de Pago (Cámara o Galería)
+  const [image, setImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
+
+  // Método de Pago & Calculadora de Vuelto
   const [metodoPago, setMetodoPago] = useState<'Efectivo' | 'Yape' | 'Plin' | 'Tarjeta' | 'Transferencia'>('Efectivo');
   const [montoRecibido, setMontoRecibido] = useState<string>('');
-  
-  // Datos Opcionales del Comprador
-  const [mostrarOpcionales, setMostrarOpcionales] = useState<boolean>(false);
-  const [nombreComprador, setNombreComprador] = useState<string>('');
-  const [dniComprador, setDniComprador] = useState<string>('');
-  const [notas, setNotas] = useState<string>('');
 
-  // Estados de Transacción & Concurrencia
+  // Concurrencia & Estados de Bloqueo
   const [procesandoVenta, setProcesandoVenta] = useState<boolean>(false);
   const isSavingRef = useRef<boolean>(false);
 
@@ -116,9 +111,11 @@ export default function EntradasVentaScreen() {
     total: number;
     metodo: string;
     vuelto: number;
+    nombre: string;
+    dni: string;
   } | null>(null);
 
-  // Historial de Mis Ventas & Cuadre
+  // Historial de Mis Ventas
   const [misVentas, setMisVentas] = useState<VentaRealizada[]>([]);
   const [cargandoHistorial, setCargandoHistorial] = useState<boolean>(false);
 
@@ -139,7 +136,6 @@ export default function EntradasVentaScreen() {
   const cargarDatosIniciales = async () => {
     try {
       setLoading(true);
-      // 1. Obtener usuario de sesión
       const savedUserId = await AsyncStorage.getItem('usuario_id');
       const savedUserNombre = await AsyncStorage.getItem('usuario_nombre');
       if (savedUserId) setColaboradorId(parseInt(savedUserId));
@@ -147,7 +143,7 @@ export default function EntradasVentaScreen() {
 
       const nombreActual = savedUserNombre || 'Colaborador';
 
-      // 2. Obtener evento activo
+      // 1. Obtener Evento Activo
       const { data: eventos, error: eventoError } = await supabase
         .from('eventos')
         .select('*')
@@ -158,26 +154,26 @@ export default function EntradasVentaScreen() {
       if (eventoError) throw eventoError;
 
       if (!eventos || eventos.length === 0) {
-        // Si no hay evento activo, crear uno básico por defecto
+        // Crear evento por defecto si no existe
         const { data: nuevoEvento } = await supabase
           .from('eventos')
           .insert([{
             nombre: 'Gran Evento Deportivo 2026',
             lugar: 'Sede Principal',
-            estado: 'ACTIVO',
+            precio_entrada: 10.00,
             aforo_maximo: 1000,
+            estado: 'ACTIVO',
           }])
           .select()
           .single();
 
         if (nuevoEvento) {
           setEvento(nuevoEvento);
-          await inicializarTiposEntrada(nuevoEvento.id);
+          await cargarMetricasYVentas(nuevoEvento.id, nombreActual);
         }
       } else {
         const ev = eventos[0];
         setEvento(ev);
-        await cargarTiposEntrada(ev.id);
         await cargarMetricasYVentas(ev.id, nombreActual);
       }
     } catch (e: any) {
@@ -191,47 +187,12 @@ export default function EntradasVentaScreen() {
     }
   };
 
-  const inicializarTiposEntrada = async (eventoId: number) => {
-    try {
-      const tiposDefecto = [
-        { evento_id: eventoId, nombre: 'Entrada General', precio: 10.00, color: '#2563eb' },
-        { evento_id: eventoId, nombre: 'Entrada Niños / Alumnos', precio: 5.00, color: '#10b981' },
-        { evento_id: eventoId, nombre: 'Entrada VIP / Preferencial', precio: 20.00, color: '#8b5cf6' },
-      ];
-      const { data } = await supabase.from('tipos_entradas').insert(tiposDefecto).select();
-      if (data) setTiposEntradas(data);
-    } catch (e) {
-      console.log('Error inicializando tipos:', e);
-    }
-  };
-
-  const cargarTiposEntrada = async (eventoId: number) => {
-    try {
-      const { data, error } = await supabase
-        .from('tipos_entradas')
-        .select('*')
-        .eq('evento_id', eventoId)
-        .eq('activo', true)
-        .order('id', { ascending: true });
-
-      if (error) throw error;
-      if (data && data.length > 0) {
-        setTiposEntradas(data);
-      } else {
-        await inicializarTiposEntrada(eventoId);
-      }
-    } catch (e) {
-      console.log('Error cargando tipos de entradas:', e);
-    }
-  };
-
   const cargarMetricasYVentas = async (eventoId: number, nombreColab: string) => {
     try {
       setCargandoHistorial(true);
-      // Obtener todas las ventas del evento para estadísticas
       const { data: ventas, error } = await supabase
         .from('ventas_entradas')
-        .select('*, detalle_venta_entradas(*)')
+        .select('*')
         .eq('evento_id', eventoId)
         .order('id', { ascending: false });
 
@@ -241,10 +202,10 @@ export default function EntradasVentaScreen() {
         const activas = ventas.filter(v => v.estado === 'COMPLETADA');
         const misActivas = activas.filter(v => v.colaborador_nombre === nombreColab);
 
-        const totalMisEntradas = misActivas.reduce((acc, v) => acc + (v.cantidad_total || 0), 0);
+        const totalMisEntradas = misActivas.reduce((acc, v) => acc + (v.cantidad || 0), 0);
         const totalMiMonto = misActivas.reduce((acc, v) => acc + Number(v.monto_total || 0), 0);
 
-        const totalGlobalEntradas = activas.reduce((acc, v) => acc + (v.cantidad_total || 0), 0);
+        const totalGlobalEntradas = activas.reduce((acc, v) => acc + (v.cantidad || 0), 0);
         const totalGlobalMonto = activas.reduce((acc, v) => acc + Number(v.monto_total || 0), 0);
 
         setStats({
@@ -254,7 +215,6 @@ export default function EntradasVentaScreen() {
           globalTotal: totalGlobalMonto,
         });
 
-        // Filtrar mis ventas para la pestaña de historial
         setMisVentas(ventas.filter(v => v.colaborador_nombre === nombreColab));
       }
     } catch (e) {
@@ -264,57 +224,59 @@ export default function EntradasVentaScreen() {
     }
   };
 
-  // Gestión de Cantidades
-  const modificarCantidad = (tipoId: number, delta: number) => {
-    setCantidades(prev => {
-      const actual = prev[tipoId] || 0;
-      const nuevo = Math.max(0, actual + delta);
-      return { ...prev, [tipoId]: nuevo };
+  // Fotos & Galería
+  const tomarFotoCamara = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      return Alert.alert('Permiso Requerido', 'Necesitas conceder acceso a la cámara para fotografiar el comprobante.');
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.6,
+      base64: true,
     });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      setImage(result.assets[0]);
+    }
   };
 
-  const setCantidadDirecta = (tipoId: number, valor: number) => {
-    setCantidades(prev => ({
-      ...prev,
-      [tipoId]: Math.max(0, valor),
-    }));
+  const elegirDeGaleria = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      return Alert.alert('Permiso Requerido', 'Necesitas permitir el acceso a tu galería para adjuntar el comprobante.');
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      quality: 0.6,
+      base64: true,
+    });
+
+    if (!result.canceled && result.assets && result.assets[0]) {
+      setImage(result.assets[0]);
+    }
   };
 
   // Cálculos de Totales
-  const calcularItems = (): ItemSeleccionado[] => {
-    const items: ItemSeleccionado[] = [];
-    tiposEntradas.forEach(tipo => {
-      const cant = cantidades[tipo.id] || 0;
-      if (cant > 0) {
-        items.push({
-          tipo_entrada_id: tipo.id,
-          nombre: tipo.nombre,
-          precio: Number(tipo.precio),
-          cantidad: cant,
-          subtotal: Number(tipo.precio) * cant,
-        });
-      }
-    });
-    return items;
-  };
+  const precioUnitario = Number(evento?.precio_entrada || 10.00);
+  const totalMonto = cantidad * precioUnitario;
 
-  const itemsSeleccionados = calcularItems();
-  const totalCantidad = itemsSeleccionados.reduce((acc, it) => acc + it.cantidad, 0);
-  const totalMonto = itemsSeleccionados.reduce((acc, it) => acc + it.subtotal, 0);
-
-  // Vuelto en Efectivo
   const montoRecibidoNum = parseFloat(montoRecibido.replace(',', '.')) || 0;
   const vueltoCalculado = metodoPago === 'Efectivo' && montoRecibidoNum > totalMonto
     ? montoRecibidoNum - totalMonto
     : 0;
 
-  // Reiniciar formulario para la siguiente venta
+  // Reiniciar formulario
   const resetearFormulario = () => {
-    setCantidades({});
+    setCantidad(1);
+    setNombreCompleto('');
+    setDni('');
+    setImage(null);
     setMontoRecibido('');
-    setNombreComprador('');
-    setDniComprador('');
-    setNotas('');
     setMetodoPago('Efectivo');
   };
 
@@ -326,8 +288,23 @@ export default function EntradasVentaScreen() {
       return Alert.alert('Aviso', 'No hay ningún evento activo configurado.');
     }
 
-    if (totalCantidad <= 0 || totalMonto <= 0) {
-      return Alert.alert('Aviso', 'Selecciona al menos una entrada para vender.');
+    if (cantidad <= 0) {
+      return Alert.alert('Aviso', 'La cantidad de entradas debe ser al menos 1.');
+    }
+
+    if (!nombreCompleto.trim()) {
+      return Alert.alert('Dato Requerido', 'Ingresa el nombre completo de la persona a quien se asigna la entrada.');
+    }
+
+    if (!dni.trim()) {
+      return Alert.alert('Dato Requerido', 'Ingresa el DNI o documento de la persona para registrar su entrada.');
+    }
+
+    if (metodoPago !== 'Efectivo' && !image) {
+      return Alert.alert(
+        'Comprobante Requerido',
+        `Para pagos con ${metodoPago}, debes adjuntar la foto o captura del comprobante desde la cámara o galería.`
+      );
     }
 
     if (metodoPago === 'Efectivo' && montoRecibidoNum > 0 && montoRecibidoNum < totalMonto) {
@@ -341,43 +318,52 @@ export default function EntradasVentaScreen() {
       isSavingRef.current = true;
       setProcesandoVenta(true);
 
-      const itemsPayload = itemsSeleccionados.map(it => ({
-        tipo_entrada_id: it.tipo_entrada_id,
-        nombre: it.nombre,
-        precio: it.precio,
-        cantidad: it.cantidad,
-        subtotal: it.subtotal,
-      }));
+      // 1. Subir comprobante a Storage si existe
+      let urlComprobante: string | null = null;
+      if (image && image.base64) {
+        const fileName = generarRutaComprobante(evento.id);
+        const { error: uploadError } = await supabase.storage
+          .from('comprobantes')
+          .upload(fileName, decode(image.base64), { contentType: 'image/jpeg' });
 
-      // Intentar primero mediante función RPC atómica (100% thread-safe)
-      const { data: rpcResult, error: rpcError } = await supabase.rpc(
-        'registrar_venta_entradas_atomica',
-        {
-          p_evento_id: evento.id,
-          p_colaborador_id: colaboradorId,
-          p_colaborador_nombre: colaboradorNombre,
-          p_metodo_pago: metodoPago,
-          p_monto_total: totalMonto,
-          p_monto_recibido: montoRecibidoNum > 0 ? montoRecibidoNum : totalMonto,
-          p_vuelto: vueltoCalculado,
-          p_nombre_comprador: nombreComprador.trim() || null,
-          p_dni_comprador: dniComprador.trim() || null,
-          p_notas: notas.trim() || null,
-          p_items: itemsPayload,
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage.from('comprobantes').getPublicUrl(fileName);
+          urlComprobante = urlData.publicUrl;
+        } else {
+          console.log('Error subiendo imagen:', uploadError);
         }
-      );
+      }
 
+      // 2. Intentar llamar a función RPC atómica
       let ticketInicio = 0;
       let ticketFin = 0;
+
+      const { data: rpcResult, error: rpcError } = await supabase.rpc(
+        'emitir_entradas_atomica',
+        {
+          p_evento_id: evento.id,
+          p_cantidad: cantidad,
+          p_precio_unitario: precioUnitario,
+          p_monto_total: totalMonto,
+          p_metodo_pago: metodoPago,
+          p_monto_recibido: montoRecibidoNum > 0 ? montoRecibidoNum : totalMonto,
+          p_vuelto: vueltoCalculado,
+          p_nombre_completo: nombreCompleto.trim(),
+          p_dni: dni.trim(),
+          p_url_comprobante: urlComprobante,
+          p_colaborador_id: colaboradorId,
+          p_colaborador_nombre: colaboradorNombre,
+          p_notas: null,
+        }
+      );
 
       if (!rpcError && rpcResult && rpcResult.ticket_inicio) {
         ticketInicio = rpcResult.ticket_inicio;
         ticketFin = rpcResult.ticket_fin;
       } else {
-        // Fallback directo si la función RPC aún no se ejecutó en la base de datos
+        // Fallback seguro a inserción directa
         console.warn('Fallback a inserción directa:', rpcError?.message);
 
-        // Obtener último número de ticket asignado
         const { data: ultVenta } = await supabase
           .from('ventas_entradas')
           .select('numero_ticket_fin')
@@ -386,63 +372,51 @@ export default function EntradasVentaScreen() {
 
         const ultimoNumero = ultVenta && ultVenta[0]?.numero_ticket_fin ? ultVenta[0].numero_ticket_fin : 0;
         ticketInicio = ultimoNumero + 1;
-        ticketFin = ticketInicio + totalCantidad - 1;
+        ticketFin = ticketInicio + cantidad - 1;
 
-        const { data: ventaDirecta, error: directError } = await supabase
+        const { error: directError } = await supabase
           .from('ventas_entradas')
           .insert([{
             evento_id: evento.id,
             numero_ticket_inicio: ticketInicio,
             numero_ticket_fin: ticketFin,
-            cantidad_total: totalCantidad,
+            cantidad,
+            precio_unitario: precioUnitario,
             monto_total: totalMonto,
             metodo_pago: metodoPago,
             monto_recibido: montoRecibidoNum > 0 ? montoRecibidoNum : totalMonto,
             vuelto: vueltoCalculado,
+            nombre_completo: nombreCompleto.trim(),
+            dni: dni.trim(),
+            url_comprobante: urlComprobante,
             colaborador_id: colaboradorId,
             colaborador_nombre: colaboradorNombre,
-            nombre_comprador: nombreComprador.trim() || null,
-            dni_comprador: dniComprador.trim() || null,
-            notas: notas.trim() || null,
             estado: 'COMPLETADA',
-          }])
-          .select()
-          .single();
+          }]);
 
         if (directError) throw directError;
-
-        if (ventaDirecta) {
-          const detallePayload = itemsSeleccionados.map(it => ({
-            venta_entrada_id: ventaDirecta.id,
-            tipo_entrada_id: it.tipo_entrada_id,
-            nombre_tipo: it.nombre,
-            precio_unitario: it.precio,
-            cantidad: it.cantidad,
-            subtotal: it.subtotal,
-          }));
-          await supabase.from('detalle_venta_entradas').insert(detallePayload);
-        }
       }
 
-      // Preparar modal de éxito
+      // Preparar datos para modal de éxito
       setUltimaVentaExito({
         ticketInicio,
         ticketFin,
-        cantidad: totalCantidad,
+        cantidad,
         total: totalMonto,
         metodo: metodoPago,
         vuelto: vueltoCalculado,
+        nombre: nombreCompleto.trim(),
+        dni: dni.trim(),
       });
 
       setModalExitoVisible(true);
       resetearFormulario();
 
-      // Recargar métricas en segundo plano
       if (evento) {
         cargarMetricasYVentas(evento.id, colaboradorNombre);
       }
     } catch (e: any) {
-      console.log('Error emitiendo entradas:', e);
+      console.log('Error emitiendo entrada:', e);
       Alert.alert('Error al Registrar Venta', e.message || 'Ocurrió un error inesperado.');
     } finally {
       setProcesandoVenta(false);
@@ -452,7 +426,7 @@ export default function EntradasVentaScreen() {
     }
   };
 
-  // Compartir comprobante rápido por WhatsApp / Mensajes
+  // Compartir comprobante por WhatsApp
   const compartirComprobante = async () => {
     if (!ultimaVentaExito) return;
     try {
@@ -461,32 +435,34 @@ export default function EntradasVentaScreen() {
         : `#${ultimaVentaExito.ticketInicio} al #${ultimaVentaExito.ticketFin}`;
 
       const texto = `🎟️ *COMPROBANTE DE ENTRADA — ${evento?.nombre || 'CAMPEONES LIMA'}*\n\n` +
+        `👤 *Titular:* ${ultimaVentaExito.nombre}\n` +
+        `🪪 *DNI:* ${ultimaVentaExito.dni}\n` +
         `🎫 *Tickets:* ${ticketsTexto}\n` +
         `🔢 *Cantidad:* ${ultimaVentaExito.cantidad} entrada(s)\n` +
-        `💰 *Total Pagado:* S/ ${ultimaVentaExito.total.toFixed(2)} (${ultimaVentaExito.metodo})\n` +
-        `👤 *Atendido por:* ${colaboradorNombre}\n` +
+        `💰 *Monto Pagado:* S/ ${ultimaVentaExito.total.toFixed(2)} (${ultimaVentaExito.metodo})\n` +
+        `👨‍💼 *Atendido por:* ${colaboradorNombre}\n` +
         `📅 *Fecha:* ${new Date().toLocaleDateString('es-PE')} ${new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}\n\n` +
-        `¡Gracias por asistir al evento! Presenta este comprobante en la puerta de acceso.`;
+        `¡Presenta este comprobante en la puerta de ingreso!`;
 
       await Share.share({ message: texto });
     } catch (e) {
-      console.log('Error al compartir:', e);
+      console.log('Error compartiendo:', e);
     }
   };
 
-  // Anulación de Venta (Con motivo obligatorio)
+  // Anulación con motivo
   const solicitarAnulacion = (venta: VentaRealizada) => {
     Alert.prompt(
-      'Anular Venta de Entradas',
-      `¿Deseas anular la venta de ${venta.cantidad_total} entrada(s) (Tickets #${venta.numero_ticket_inicio} al #${venta.numero_ticket_fin})?\n\nIngresa el motivo de la anulación:`,
+      'Anular Venta de Entrada',
+      `¿Deseas anular la entrada #${venta.numero_ticket_inicio} asignada a ${venta.nombre_completo || 'Cliente'}?\n\nIngresa el motivo:`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Anular Venta',
+          text: 'Anular Entrada',
           style: 'destructive',
           onPress: async (motivo) => {
             if (!motivo || !motivo.trim()) {
-              return Alert.alert('Aviso', 'Debes ingresar un motivo para anular la venta.');
+              return Alert.alert('Aviso', 'Debes ingresar un motivo para anular la entrada.');
             }
             try {
               const { error } = await supabase
@@ -499,27 +475,27 @@ export default function EntradasVentaScreen() {
 
               if (error) throw error;
 
-              Alert.alert('Venta Anulada', 'La venta fue anulada correctamente y se ha descontado de tu caja.');
+              Alert.alert('Entrada Anulada', 'La entrada ha sido anulada y descontada de tu caja.');
               if (evento) cargarMetricasYVentas(evento.id, colaboradorNombre);
             } catch (e: any) {
-              Alert.alert('Error', e.message || 'No se pudo anular la venta.');
+              Alert.alert('Error', e.message || 'No se pudo anular la entrada.');
             }
           },
         },
       ],
       'plain-text',
-      'Error en cantidad / cancelación de cliente'
+      'Cancelación de cliente / error en DNI'
     );
   };
 
-  // Desglose de Cuadre Personal
+  // Cuadre Personal de Caja
   const calcularCuadrePersonal = () => {
     const activas = misVentas.filter(v => v.estado === 'COMPLETADA');
     const efectivo = activas.filter(v => v.metodo_pago === 'Efectivo').reduce((acc, v) => acc + Number(v.monto_total), 0);
     const yape = activas.filter(v => v.metodo_pago === 'Yape').reduce((acc, v) => acc + Number(v.monto_total), 0);
     const plin = activas.filter(v => v.metodo_pago === 'Plin').reduce((acc, v) => acc + Number(v.monto_total), 0);
     const otros = activas.filter(v => v.metodo_pago !== 'Efectivo' && v.metodo_pago !== 'Yape' && v.metodo_pago !== 'Plin').reduce((acc, v) => acc + Number(v.monto_total), 0);
-    const totalEntradas = activas.reduce((acc, v) => acc + (v.cantidad_total || 0), 0);
+    const totalEntradas = activas.reduce((acc, v) => acc + (v.cantidad || 0), 0);
     const totalRecaudado = efectivo + yape + plin + otros;
 
     return {
@@ -562,7 +538,7 @@ export default function EntradasVentaScreen() {
               {evento?.nombre || 'Gran Evento Deportivo'}
             </Text>
             <Text style={[styles.eventoSub, { color: theme.textMuted }]}>
-              📍 {evento?.lugar || 'Sede Principal'}
+              📍 {evento?.lugar || 'Sede Principal'} • Precio: S/ {precioUnitario.toFixed(2)}
             </Text>
           </View>
 
@@ -609,7 +585,7 @@ export default function EntradasVentaScreen() {
       </View>
 
       {/* ========================================================================= */}
-      {/* PESTAÑA 1: BOLETERÍA RÁPIDA (VENTA EN EL MOMENTO)                         */}
+      {/* PESTAÑA 1: BOLETERÍA RÁPIDA SIMPLIFICADA (1 TIPO + NOMBRE + DNI + FOTO)   */}
       {/* ========================================================================= */}
       {activeTab === 'VENTA' && (
         <KeyboardAvoidingView
@@ -634,90 +610,95 @@ export default function EntradasVentaScreen() {
               </View>
             </View>
 
-            {/* Listado de Tipos de Entradas */}
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Selecciona Entradas</Text>
-
-            {tiposEntradas.map(tipo => {
-              const cant = cantidades[tipo.id] || 0;
-              const subtotal = cant * Number(tipo.precio);
-              const isSelected = cant > 0;
-
-              return (
-                <View
-                  key={tipo.id}
-                  style={[
-                    styles.ticketCard,
-                    {
-                      backgroundColor: theme.card,
-                      borderColor: isSelected ? '#2563eb' : theme.border,
-                      borderWidth: isSelected ? 2 : 1,
-                    },
-                  ]}
-                >
-                  <View style={styles.ticketCardHeader}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.ticketNombre, { color: theme.text }]}>{tipo.nombre}</Text>
-                      <Text style={[styles.ticketPrecio, { color: theme.primary }]}>
-                        S/ {Number(tipo.precio).toFixed(2)} c/u
-                      </Text>
-                    </View>
-
-                    {isSelected && (
-                      <View style={styles.subtotalPill}>
-                        <Text style={styles.subtotalPillText}>S/ {subtotal.toFixed(2)}</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Controles de Cantidad */}
-                  <View style={styles.counterRow}>
-                    <TouchableOpacity
-                      style={[styles.counterBtn, cant === 0 && styles.counterBtnDisabled]}
-                      onPress={() => modificarCantidad(tipo.id, -1)}
-                      disabled={cant === 0}
-                    >
-                      <Minus color={cant === 0 ? '#94a3b8' : '#2563eb'} size={20} />
-                    </TouchableOpacity>
-
-                    <Text style={[styles.counterNumber, { color: theme.text }]}>{cant}</Text>
-
-                    <TouchableOpacity
-                      style={styles.counterBtn}
-                      onPress={() => modificarCantidad(tipo.id, 1)}
-                    >
-                      <Plus color="#2563eb" size={20} />
-                    </TouchableOpacity>
-
-                    {/* Botones de Atajo Rápido */}
-                    <View style={styles.shortcutsRow}>
-                      <TouchableOpacity
-                        style={[styles.shortcutBtn, cant === 1 && styles.shortcutBtnActive]}
-                        onPress={() => setCantidadDirecta(tipo.id, 1)}
-                      >
-                        <Text style={[styles.shortcutText, cant === 1 && styles.shortcutTextActive]}>1</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.shortcutBtn, cant === 2 && styles.shortcutBtnActive]}
-                        onPress={() => setCantidadDirecta(tipo.id, 2)}
-                      >
-                        <Text style={[styles.shortcutText, cant === 2 && styles.shortcutTextActive]}>2</Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.shortcutBtn, cant === 5 && styles.shortcutBtnActive]}
-                        onPress={() => setCantidadDirecta(tipo.id, 5)}
-                      >
-                        <Text style={[styles.shortcutText, cant === 5 && styles.shortcutTextActive]}>+5</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
+            {/* SELECCIÓN DE CANTIDAD (TIPO ÚNICO) */}
+            <View style={[styles.singleTicketCard, { backgroundColor: theme.card, borderColor: '#2563eb' }]}>
+              <View style={styles.singleTicketHeader}>
+                <View>
+                  <Text style={[styles.singleTicketTitle, { color: theme.text }]}>Entrada al Evento</Text>
+                  <Text style={[styles.singleTicketPrice, { color: theme.primary }]}>
+                    S/ {precioUnitario.toFixed(2)} c/u
+                  </Text>
                 </View>
-              );
-            })}
 
-            {/* Selector de Método de Pago */}
-            <Text style={[styles.sectionTitle, { color: theme.text, marginTop: 15 }]}>Método de Pago</Text>
+                <View style={styles.subtotalPill}>
+                  <Text style={styles.subtotalPillText}>Total: S/ {totalMonto.toFixed(2)}</Text>
+                </View>
+              </View>
+
+              <View style={styles.counterRow}>
+                <TouchableOpacity
+                  style={[styles.counterBtn, cantidad <= 1 && styles.counterBtnDisabled]}
+                  onPress={() => setCantidad(Math.max(1, cantidad - 1))}
+                  disabled={cantidad <= 1}
+                >
+                  <Minus color={cantidad <= 1 ? '#94a3b8' : '#2563eb'} size={20} />
+                </TouchableOpacity>
+
+                <Text style={[styles.counterNumber, { color: theme.text }]}>{cantidad}</Text>
+
+                <TouchableOpacity
+                  style={styles.counterBtn}
+                  onPress={() => setCantidad(cantidad + 1)}
+                >
+                  <Plus color="#2563eb" size={20} />
+                </TouchableOpacity>
+
+                {/* Atajos Rápidos */}
+                <View style={styles.shortcutsRow}>
+                  {[1, 2, 3, 5, 10].map(n => (
+                    <TouchableOpacity
+                      key={n}
+                      style={[styles.shortcutBtn, cantidad === n && styles.shortcutBtnActive]}
+                      onPress={() => setCantidad(n)}
+                    >
+                      <Text style={[styles.shortcutText, cantidad === n && styles.shortcutTextActive]}>
+                        {n}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* ASIGNACIÓN DE TITULAR (NOMBRE Y DNI) */}
+            <Text style={[styles.sectionTitle, { color: theme.text, marginTop: 14 }]}>
+              Datos de la Persona (Asignación)
+            </Text>
+
+            <View style={[styles.formCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+              <View style={styles.inputWrapper}>
+                <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Nombre Completo *</Text>
+                <View style={[styles.inputBox, { borderColor: theme.border, backgroundColor: theme.background }]}>
+                  <User color="#2563eb" size={18} />
+                  <TextInput
+                    style={[styles.textInput, { color: theme.text }]}
+                    placeholder="Ej. Juan Carlos Pérez Rojas"
+                    placeholderTextColor={theme.textMuted}
+                    value={nombreCompleto}
+                    onChangeText={setNombreCompleto}
+                  />
+                </View>
+              </View>
+
+              <View style={[styles.inputWrapper, { marginTop: 12 }]}>
+                <Text style={[styles.inputLabel, { color: theme.textMuted }]}>DNI / Documento *</Text>
+                <View style={[styles.inputBox, { borderColor: theme.border, backgroundColor: theme.background }]}>
+                  <IdCard color="#2563eb" size={18} />
+                  <TextInput
+                    style={[styles.textInput, { color: theme.text }]}
+                    placeholder="Ej. 72458912"
+                    placeholderTextColor={theme.textMuted}
+                    keyboardType="numeric"
+                    maxLength={12}
+                    value={dni}
+                    onChangeText={setDni}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* MÉTODO DE PAGO */}
+            <Text style={[styles.sectionTitle, { color: theme.text, marginTop: 16 }]}>Método de Pago</Text>
             <View style={styles.payMethodsGrid}>
               <TouchableOpacity
                 style={[
@@ -792,12 +773,11 @@ export default function EntradasVentaScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Calculadora Rápida de Vuelto si es Efectivo */}
-            {metodoPago === 'Efectivo' && totalMonto > 0 && (
+            {/* CALCULADORA DE VUELTO SI ES EFECTIVO */}
+            {metodoPago === 'Efectivo' && (
               <View style={[styles.cashBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
                 <Text style={[styles.cashBoxTitle, { color: theme.text }]}>Calculadora Rápida de Vuelto</Text>
 
-                {/* Billetes rápidos */}
                 <View style={styles.quickBillsRow}>
                   <TouchableOpacity
                     style={styles.quickBillBtn}
@@ -828,7 +808,6 @@ export default function EntradasVentaScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Input Manual y Vuelto */}
                 <View style={styles.cashInputRow}>
                   <View style={{ flex: 1, marginRight: 12 }}>
                     <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Paga con (S/):</Text>
@@ -850,51 +829,58 @@ export default function EntradasVentaScreen() {
               </View>
             )}
 
-            {/* Sección Opcional: Datos del Comprador (Colapsable para no demorar la cola) */}
-            <TouchableOpacity
-              style={[styles.optionalHeader, { borderColor: theme.border }]}
-              onPress={() => setMostrarOpcionales(!mostrarOpcionales)}
-            >
-              <Text style={[styles.optionalHeaderText, { color: theme.textMuted }]}>
-                {mostrarOpcionales ? '▲ Ocultar datos del comprador' : '▼ Opcional: Nombre / DNI del comprador'}
-              </Text>
-            </TouchableOpacity>
-
-            {mostrarOpcionales && (
-              <View style={[styles.optionalBody, { backgroundColor: theme.card, borderColor: theme.border }]}>
-                <TextInput
-                  style={[styles.optionalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
-                  placeholder="Nombre o Apellido del Comprador"
-                  placeholderTextColor={theme.textMuted}
-                  value={nombreComprador}
-                  onChangeText={setNombreComprador}
-                />
-                <TextInput
-                  style={[styles.optionalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border, marginTop: 8 }]}
-                  placeholder="DNI (Opcional)"
-                  keyboardType="numeric"
-                  placeholderTextColor={theme.textMuted}
-                  value={dniComprador}
-                  onChangeText={setDniComprador}
-                />
-                <TextInput
-                  style={[styles.optionalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border, marginTop: 8 }]}
-                  placeholder="Notas adicionales (Opcional)"
-                  placeholderTextColor={theme.textMuted}
-                  value={notas}
-                  onChangeText={setNotas}
-                />
+            {/* COMPROBANTE DE PAGO (FOTO O GALERÍA) */}
+            <View style={{ marginTop: 14, marginBottom: 15 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 0 }]}>
+                  Comprobante de Pago {metodoPago !== 'Efectivo' ? '(Requerido)' : '(Opcional)'}
+                </Text>
               </View>
-            )}
 
-            <View style={{ height: 100 }} />
+              {image ? (
+                <View style={[styles.imagePreviewWrapper, { borderColor: theme.border, backgroundColor: theme.card }]}>
+                  <Image source={{ uri: image.uri }} style={styles.imagePreview} />
+                  <View style={styles.imageActionsRow}>
+                    <TouchableOpacity style={styles.btnActionSmall} onPress={tomarFotoCamara}>
+                      <Camera color="#2563eb" size={16} />
+                      <Text style={styles.btnActionSmallText}>Tomar Foto</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.btnActionSmall} onPress={elegirDeGaleria}>
+                      <ImageIcon color="#059669" size={16} />
+                      <Text style={styles.btnActionSmallText}>Abrir Galería</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.btnActionSmall, styles.btnDelete]} onPress={() => setImage(null)}>
+                      <Trash2 color="#ef4444" size={16} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <View style={[styles.imageOptionsBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
+                  <Text style={[styles.imageOptionsHint, { color: theme.textMuted }]}>
+                    Selecciona cómo deseas adjuntar el comprobante:
+                  </Text>
+                  <View style={styles.imageButtonsRow}>
+                    <TouchableOpacity style={styles.btnOptionCamera} onPress={tomarFotoCamara} activeOpacity={0.85}>
+                      <Camera color="#ffffff" size={20} />
+                      <Text style={styles.btnOptionCameraText}>Tomar Foto</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={styles.btnOptionGallery} onPress={elegirDeGaleria} activeOpacity={0.85}>
+                      <ImageIcon color="#0f172a" size={20} />
+                      <Text style={styles.btnOptionGalleryText}>Abrir Galería</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <View style={{ height: 110 }} />
           </ScrollView>
 
-          {/* 3. Barra Fija Inferior con Total y Botón de Emisión */}
+          {/* BARRA FIJA INFERIOR DE EMISIÓN */}
           <View style={[styles.bottomBar, { backgroundColor: theme.card, borderTopColor: theme.border }]}>
             <View style={styles.bottomBarInfo}>
               <Text style={[styles.bottomBarCount, { color: theme.textMuted }]}>
-                {totalCantidad} {totalCantidad === 1 ? 'entrada' : 'entradas'}
+                {cantidad} {cantidad === 1 ? 'entrada' : 'entradas'}
               </Text>
               <Text style={[styles.bottomBarTotal, { color: theme.primary }]}>
                 S/ {totalMonto.toFixed(2)}
@@ -904,10 +890,10 @@ export default function EntradasVentaScreen() {
             <AnimatedButton
               style={[
                 styles.emitirBtn,
-                (totalCantidad === 0 || procesandoVenta) && styles.emitirBtnDisabled,
+                (procesandoVenta || !nombreCompleto.trim() || !dni.trim()) && styles.emitirBtnDisabled,
               ]}
               onPress={emitirEntradas}
-              disabled={totalCantidad === 0 || procesandoVenta}
+              disabled={procesandoVenta || !nombreCompleto.trim() || !dni.trim()}
             >
               {procesandoVenta ? (
                 <ActivityIndicator color="white" size="small" />
@@ -915,7 +901,7 @@ export default function EntradasVentaScreen() {
                 <>
                   <Ticket color="white" size={20} />
                   <Text style={styles.emitirBtnText}>
-                    EMITIR ({totalCantidad})
+                    EMITIR ({cantidad})
                   </Text>
                 </>
               )}
@@ -931,7 +917,7 @@ export default function EntradasVentaScreen() {
         <ScrollView contentContainerStyle={styles.scrollContent}>
           <View style={styles.tabHeaderRow}>
             <Text style={[styles.sectionTitle, { color: theme.text, marginBottom: 0 }]}>
-              Mis Ventas ({misVentas.length})
+              Mis Entradas Emitidas ({misVentas.length})
             </Text>
             <TouchableOpacity
               style={styles.refreshBtn}
@@ -951,7 +937,7 @@ export default function EntradasVentaScreen() {
               <Ticket size={32} color={theme.textMuted} />
               <Text style={[styles.emptyTitle, { color: theme.text }]}>No has registrado ventas aún</Text>
               <Text style={[styles.emptySub, { color: theme.textMuted }]}>
-                Las entradas que emitas aparecerán aquí con su número de ticket asignado.
+                Las entradas que emitas con Nombre y DNI aparecerán aquí.
               </Text>
             </View>
           ) : (
@@ -993,22 +979,28 @@ export default function EntradasVentaScreen() {
                   </View>
 
                   <View style={styles.historyCardBody}>
-                    <Text style={[styles.historyItems, { color: theme.text }]}>
-                      🎫 {venta.cantidad_total} {venta.cantidad_total === 1 ? 'Entrada' : 'Entradas'} ({venta.metodo_pago})
+                    <Text style={[styles.historyBuyerName, { color: theme.text }]}>
+                      👤 {venta.nombre_completo || 'Sin nombre'}
                     </Text>
-                    {venta.nombre_comprador ? (
-                      <Text style={[styles.historyBuyer, { color: theme.textMuted }]}>
-                        👤 Comprador: {venta.nombre_comprador}
-                      </Text>
-                    ) : null}
+                    <Text style={[styles.historyBuyerDni, { color: theme.textMuted }]}>
+                      🪪 DNI: {venta.dni || 'Sin DNI'} • {venta.cantidad} ent. ({venta.metodo_pago})
+                    </Text>
                     <Text style={[styles.historyTime, { color: theme.textMuted }]}>
                       🕒 {new Date(venta.fecha).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                   </View>
 
+                  {/* Comprobante en miniatura si existe */}
+                  {venta.url_comprobante ? (
+                    <View style={styles.historyThumbBox}>
+                      <Image source={{ uri: venta.url_comprobante }} style={styles.historyThumb} />
+                      <Text style={styles.historyThumbText}>Comprobante adjuntado</Text>
+                    </View>
+                  ) : null}
+
                   {isAnulada ? (
                     <View style={styles.anuladaBadge}>
-                      <Text style={styles.anuladaBadgeText}>🚫 VENTA ANULADA</Text>
+                      <Text style={styles.anuladaBadgeText}>🚫 ENTRADA ANULADA</Text>
                     </View>
                   ) : (
                     <View style={styles.historyActionsRow}>
@@ -1037,7 +1029,6 @@ export default function EntradasVentaScreen() {
             Resumen de dinero recaudado para entregar a la administración al finalizar tu turno.
           </Text>
 
-          {/* Tarjeta de Efectivo en Mano (Crítico para entrega de caja) */}
           <View style={[styles.cashHighlightCard, { backgroundColor: '#dcfce7', borderColor: '#86efac' }]}>
             <View style={styles.cashHighlightHeader}>
               <DollarSign color="#16a34a" size={26} />
@@ -1051,7 +1042,6 @@ export default function EntradasVentaScreen() {
             </Text>
           </View>
 
-          {/* Tarjeta de Desglose Completo */}
           <View style={[styles.cuadreCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
             <Text style={[styles.cuadreCardTitle, { color: theme.text }]}>Desglose por Método de Pago</Text>
 
@@ -1107,7 +1097,7 @@ export default function EntradasVentaScreen() {
       )}
 
       {/* ========================================================================= */}
-      {/* MODAL DE CONFIRMACIÓN DE VENTA EXITOSA (VENTA RÁPIDA)                     */}
+      {/* MODAL DE CONFIRMACIÓN DE VENTA EXITOSA                                    */}
       {/* ========================================================================= */}
       <Modal
         visible={modalExitoVisible}
@@ -1121,7 +1111,7 @@ export default function EntradasVentaScreen() {
               <CheckCircle2 color="#16a34a" size={56} />
             </View>
 
-            <Text style={[styles.modalTitle, { color: theme.text }]}>¡Venta Registrada!</Text>
+            <Text style={[styles.modalTitle, { color: theme.text }]}>¡Entrada Asignada!</Text>
             <Text style={[styles.modalSubtitle, { color: theme.textMuted }]}>
               {evento?.nombre || 'Evento Deportivo'}
             </Text>
@@ -1136,8 +1126,22 @@ export default function EntradasVentaScreen() {
               </Text>
             </View>
 
-            {/* Resumen Monetario */}
+            {/* Resumen Asignación */}
             <View style={[styles.modalSummaryBox, { backgroundColor: theme.background }]}>
+              <View style={styles.modalSummaryRow}>
+                <Text style={[styles.modalSummaryLabel, { color: theme.textMuted }]}>Titular:</Text>
+                <Text style={[styles.modalSummaryVal, { color: theme.text, fontFamily: fonts.bold }]}>
+                  {ultimaVentaExito?.nombre}
+                </Text>
+              </View>
+
+              <View style={styles.modalSummaryRow}>
+                <Text style={[styles.modalSummaryLabel, { color: theme.textMuted }]}>DNI:</Text>
+                <Text style={[styles.modalSummaryVal, { color: theme.text }]}>
+                  {ultimaVentaExito?.dni}
+                </Text>
+              </View>
+
               <View style={styles.modalSummaryRow}>
                 <Text style={[styles.modalSummaryLabel, { color: theme.textMuted }]}>Cantidad:</Text>
                 <Text style={[styles.modalSummaryVal, { color: theme.text }]}>
@@ -1259,7 +1263,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: 14,
     alignItems: 'center',
   },
   statBox: {
@@ -1290,9 +1294,9 @@ const styles = StyleSheet.create({
   },
 
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: fonts.bold,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   sectionSubtitle: {
     fontSize: 13,
@@ -1300,23 +1304,24 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
 
-  // Ticket Card
-  ticketCard: {
-    padding: 14,
-    borderRadius: 16,
+  // Single Ticket Card
+  singleTicketCard: {
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 2,
     marginBottom: 12,
   },
-  ticketCardHeader: {
+  singleTicketHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    alignItems: 'center',
+    marginBottom: 14,
   },
-  ticketNombre: {
-    fontSize: 16,
+  singleTicketTitle: {
+    fontSize: 17,
     fontFamily: fonts.bold,
   },
-  ticketPrecio: {
+  singleTicketPrice: {
     fontSize: 14,
     fontFamily: fonts.semiBold,
     marginTop: 2,
@@ -1330,7 +1335,7 @@ const styles = StyleSheet.create({
     borderColor: '#93c5fd',
   },
   subtotalPillText: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: fonts.bold,
     color: '#2563eb',
   },
@@ -1340,9 +1345,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   counterBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#eff6ff',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1354,18 +1359,18 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   counterNumber: {
-    width: 44,
+    width: 46,
     textAlign: 'center',
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: fonts.bold,
   },
   shortcutsRow: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
     marginLeft: 'auto',
   },
   shortcutBtn: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 7,
     borderRadius: 10,
     backgroundColor: '#f1f5f9',
@@ -1385,12 +1390,40 @@ const styles = StyleSheet.create({
     color: 'white',
   },
 
+  // Form Card (Nombre & DNI)
+  formCard: {
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  inputWrapper: {},
+  inputLabel: {
+    fontSize: 12,
+    fontFamily: fonts.semiBold,
+    marginBottom: 6,
+  },
+  inputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 46,
+    gap: 8,
+  },
+  textInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: fonts.medium,
+  },
+
   // Métodos de Pago
   payMethodsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   payMethodBtn: {
     flex: 1,
@@ -1416,7 +1449,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 16,
     borderWidth: 1,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   cashBoxTitle: {
     fontSize: 13,
@@ -1446,11 +1479,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  inputLabel: {
-    fontSize: 11,
-    fontFamily: fonts.medium,
-    marginBottom: 4,
-  },
   cashInput: {
     height: 44,
     borderRadius: 10,
@@ -1479,30 +1507,98 @@ const styles = StyleSheet.create({
     color: '#059669',
   },
 
-  // Datos Opcionales
-  optionalHeader: {
-    paddingVertical: 10,
-    borderTopWidth: 1,
+  // Comprobante UI (Cámara & Galería)
+  imageOptionsBox: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    padding: 16,
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
   },
-  optionalHeaderText: {
+  imageOptionsHint: {
     fontSize: 12,
-    fontFamily: fonts.medium,
-  },
-  optionalBody: {
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    marginBottom: 16,
-  },
-  optionalInput: {
-    height: 40,
-    borderRadius: 8,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    fontSize: 13,
     fontFamily: fonts.regular,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  imageButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  btnOptionCamera: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563eb',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  btnOptionCameraText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontFamily: fonts.bold,
+  },
+  btnOptionGallery: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  btnOptionGalleryText: {
+    color: '#0f172a',
+    fontSize: 13,
+    fontFamily: fonts.bold,
+  },
+  imagePreviewWrapper: {
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 10,
+    alignItems: 'center',
+  },
+  imagePreview: {
+    width: '100%',
+    height: 180,
+    borderRadius: 12,
+    resizeMode: 'contain',
+    backgroundColor: '#f8fafc',
+  },
+  imageActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 10,
+    gap: 8,
+  },
+  btnActionSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  btnActionSmallText: {
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    color: '#1e40af',
+  },
+  btnDelete: {
+    backgroundColor: '#fee2e2',
+    borderColor: '#fca5a5',
   },
 
   // Barra Fija Inferior
@@ -1615,17 +1711,37 @@ const styles = StyleSheet.create({
   historyCardBody: {
     gap: 2,
   },
-  historyItems: {
-    fontSize: 13,
-    fontFamily: fonts.semiBold,
+  historyBuyerName: {
+    fontSize: 14,
+    fontFamily: fonts.bold,
   },
-  historyBuyer: {
+  historyBuyerDni: {
     fontSize: 12,
-    fontFamily: fonts.regular,
+    fontFamily: fonts.medium,
   },
   historyTime: {
     fontSize: 11,
     fontFamily: fonts.regular,
+  },
+  historyThumbBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    backgroundColor: '#f8fafc',
+    padding: 6,
+    borderRadius: 8,
+  },
+  historyThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    backgroundColor: '#e2e8f0',
+  },
+  historyThumbText: {
+    fontSize: 11,
+    fontFamily: fonts.medium,
+    color: '#059669',
   },
   historyActionsRow: {
     flexDirection: 'row',

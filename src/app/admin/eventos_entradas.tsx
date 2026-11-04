@@ -10,6 +10,7 @@ import {
   TextInput,
   Modal,
   Share,
+  Image,
   useColorScheme,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,7 +23,6 @@ import {
   Users,
   DollarSign,
   Share2,
-  Plus,
   RefreshCw,
   Search,
   ArrowLeft,
@@ -34,20 +34,11 @@ import {
 type Evento = {
   id: number;
   nombre: string;
-  descripcion: string;
   lugar: string;
   fecha: string;
+  precio_entrada: number;
   estado: string;
   aforo_maximo: number | null;
-};
-
-type TipoEntrada = {
-  id: number;
-  evento_id: number;
-  nombre: string;
-  precio: number;
-  color: string;
-  activo: boolean;
 };
 
 type ColaboradorResumen = {
@@ -65,12 +56,14 @@ type VentaAdmin = {
   id: number;
   numero_ticket_inicio: number;
   numero_ticket_fin: number;
-  cantidad_total: number;
+  cantidad: number;
+  precio_unitario: number;
   monto_total: number;
   metodo_pago: string;
   colaborador_nombre: string;
-  nombre_comprador?: string;
-  dni_comprador?: string;
+  nombre_completo?: string;
+  dni?: string;
+  url_comprobante?: string;
   estado: string;
   fecha: string;
   motivo_anulacion?: string;
@@ -82,23 +75,20 @@ export default function AdminEventosEntradasScreen() {
 
   const [loading, setLoading] = useState<boolean>(true);
   const [evento, setEvento] = useState<Evento | null>(null);
-  const [tiposEntradas, setTiposEntradas] = useState<TipoEntrada[]>([]);
   const [ventas, setVentas] = useState<VentaAdmin[]>([]);
   const [colaboradores, setColaboradores] = useState<ColaboradorResumen[]>([]);
   
   // Filtro de Búsqueda
   const [busqueda, setBusqueda] = useState<string>('');
 
-  // Modales
-  const [modalTipoVisible, setModalTipoVisible] = useState<boolean>(false);
-  const [nuevoTipoNombre, setNuevoTipoNombre] = useState<string>('');
-  const [nuevoTipoPrecio, setNuevoTipoPrecio] = useState<string>('');
-  const [guardandoTipo, setGuardandoTipo] = useState<boolean>(false);
+  // Modal Ver Comprobante en Grande
+  const [comprobanteUrlGrande, setComprobanteUrlGrande] = useState<string | null>(null);
 
-  // Modal Configuración de Evento / Aforo
+  // Modal Configuración de Evento / Aforo / Precio Único
   const [modalConfigVisible, setModalConfigVisible] = useState<boolean>(false);
   const [eventoNombreInput, setEventoNombreInput] = useState<string>('');
   const [eventoLugarInput, setEventoLugarInput] = useState<string>('');
+  const [eventoPrecioInput, setEventoPrecioInput] = useState<string>('');
   const [eventoAforoInput, setEventoAforoInput] = useState<string>('');
   const [guardandoConfig, setGuardandoConfig] = useState<boolean>(false);
 
@@ -132,18 +122,10 @@ export default function AdminEventosEntradasScreen() {
       setEvento(ev);
       setEventoNombreInput(ev.nombre);
       setEventoLugarInput(ev.lugar || '');
+      setEventoPrecioInput(ev.precio_entrada ? ev.precio_entrada.toString() : '10.00');
       setEventoAforoInput(ev.aforo_maximo ? ev.aforo_maximo.toString() : '');
 
-      // 2. Cargar Tipos de Entradas
-      const { data: tipos } = await supabase
-        .from('tipos_entradas')
-        .select('*')
-        .eq('evento_id', ev.id)
-        .order('id', { ascending: true });
-
-      setTiposEntradas(tipos || []);
-
-      // 3. Cargar Ventas del Evento
+      // 2. Cargar Ventas del Evento
       const { data: vts, error: vtsError } = await supabase
         .from('ventas_entradas')
         .select('*')
@@ -155,7 +137,7 @@ export default function AdminEventosEntradasScreen() {
       const todasVentas: VentaAdmin[] = vts || [];
       setVentas(todasVentas);
 
-      // 4. Procesar Resumen por Colaborador
+      // 3. Procesar Resumen por Colaborador
       const activas = todasVentas.filter(v => v.estado === 'COMPLETADA');
       const mapaColabs: Record<string, ColaboradorResumen> = {};
 
@@ -175,7 +157,7 @@ export default function AdminEventosEntradasScreen() {
         }
 
         const monto = Number(v.monto_total) || 0;
-        mapaColabs[nombre].entradas += v.cantidad_total || 0;
+        mapaColabs[nombre].entradas += v.cantidad || 0;
         mapaColabs[nombre].total += monto;
         mapaColabs[nombre].transacciones += 1;
 
@@ -197,7 +179,7 @@ export default function AdminEventosEntradasScreen() {
 
   // Cálculos Globales
   const ventasActivas = ventas.filter(v => v.estado === 'COMPLETADA');
-  const globalTotalEntradas = ventasActivas.reduce((acc, v) => acc + (v.cantidad_total || 0), 0);
+  const globalTotalEntradas = ventasActivas.reduce((acc, v) => acc + (v.cantidad || 0), 0);
   const globalTotalRecaudado = ventasActivas.reduce((acc, v) => acc + Number(v.monto_total || 0), 0);
   const globalEfectivo = ventasActivas.filter(v => v.metodo_pago === 'Efectivo').reduce((acc, v) => acc + Number(v.monto_total || 0), 0);
   const globalDigital = globalTotalRecaudado - globalEfectivo;
@@ -205,46 +187,15 @@ export default function AdminEventosEntradasScreen() {
   const aforoRestante = aforoMax > 0 ? Math.max(0, aforoMax - globalTotalEntradas) : null;
   const aforoPorcentaje = aforoMax > 0 ? Math.min(100, Math.round((globalTotalEntradas / aforoMax) * 100)) : 0;
 
-  // Guardar Nuevo Tipo de Entrada
-  const handleGuardarTipoEntrada = async () => {
-    if (!nuevoTipoNombre.trim()) {
-      return Alert.alert('Aviso', 'Ingresa el nombre del tipo de entrada.');
-    }
-    const precioNum = parseFloat(nuevoTipoPrecio.replace(',', '.'));
-    if (isNaN(precioNum) || precioNum <= 0) {
-      return Alert.alert('Aviso', 'Ingresa un precio válido mayor a 0.');
-    }
-
-    if (!evento) return;
-
-    try {
-      setGuardandoTipo(true);
-      const { error } = await supabase.from('tipos_entradas').insert([{
-        evento_id: evento.id,
-        nombre: nuevoTipoNombre.trim(),
-        precio: precioNum,
-        color: '#2563eb',
-        activo: true,
-      }]);
-
-      if (error) throw error;
-
-      Alert.alert('Éxito', `Tipo de entrada "${nuevoTipoNombre.trim()}" agregado.`);
-      setNuevoTipoNombre('');
-      setNuevoTipoPrecio('');
-      setModalTipoVisible(false);
-      cargarDatos();
-    } catch (e: any) {
-      Alert.alert('Error', e.message || 'No se pudo guardar el tipo de entrada.');
-    } finally {
-      setGuardandoTipo(false);
-    }
-  };
-
-  // Guardar Configuración de Evento / Aforo
+  // Guardar Configuración de Evento / Aforo / Precio Único
   const handleGuardarConfigEvento = async () => {
     if (!eventoNombreInput.trim()) {
       return Alert.alert('Aviso', 'El nombre del evento no puede estar vacío.');
+    }
+
+    const precioNum = parseFloat(eventoPrecioInput.replace(',', '.'));
+    if (isNaN(precioNum) || precioNum <= 0) {
+      return Alert.alert('Aviso', 'Ingresa un precio de entrada válido mayor a 0.');
     }
 
     const aforoNum = eventoAforoInput.trim() ? parseInt(eventoAforoInput.trim()) : null;
@@ -258,13 +209,14 @@ export default function AdminEventosEntradasScreen() {
         .update({
           nombre: eventoNombreInput.trim(),
           lugar: eventoLugarInput.trim() || 'Complejo Deportivo',
+          precio_entrada: precioNum,
           aforo_maximo: aforoNum,
         })
         .eq('id', evento.id);
 
       if (error) throw error;
 
-      Alert.alert('Configuración Guardada', 'Los datos del evento han sido actualizados.');
+      Alert.alert('Configuración Guardada', 'Los datos del evento y precio han sido actualizados.');
       setModalConfigVisible(false);
       cargarDatos();
     } catch (e: any) {
@@ -277,8 +229,8 @@ export default function AdminEventosEntradasScreen() {
   // Anular Venta desde Admin
   const anularVentaAdmin = (venta: VentaAdmin) => {
     Alert.prompt(
-      'Anular Venta de Entradas',
-      `¿Deseas anular la venta #${venta.id} (${venta.cantidad_total} entradas emitidas por ${venta.colaborador_nombre})?\n\nIngresa el motivo:`,
+      'Anular Entrada',
+      `¿Deseas anular la entrada #${venta.numero_ticket_inicio} emitida a ${venta.nombre_completo || 'Cliente'} por ${venta.colaborador_nombre}?\n\nIngresa el motivo:`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -299,10 +251,10 @@ export default function AdminEventosEntradasScreen() {
 
               if (error) throw error;
 
-              Alert.alert('Éxito', 'Venta anulada correctamente.');
+              Alert.alert('Éxito', 'Entrada anulada correctamente.');
               cargarDatos();
             } catch (e: any) {
-              Alert.alert('Error', e.message || 'No se pudo anular la venta.');
+              Alert.alert('Error', e.message || 'No se pudo anular la entrada.');
             }
           },
         },
@@ -323,9 +275,10 @@ export default function AdminEventosEntradasScreen() {
 
       const texto = `📊 *REPORTE DE ENTRADAS — ${evento.nombre}*\n` +
         `📍 *Lugar:* ${evento.lugar}\n` +
+        `🎟️ *Precio Entrada:* S/ ${Number(evento.precio_entrada || 10).toFixed(2)}\n` +
         `📅 *Fecha:* ${new Date().toLocaleDateString('es-PE')}\n\n` +
         `🎫 *Total Entradas Vendidas:* ${globalTotalEntradas} ent.\n` +
-        (aforoMax > 0 ? `🏟️ *Aforo Ocupado:* ${aforoPorcentaje}% (Quedan ${aforoRestante} entradas)\n` : '') +
+        (aforoMax > 0 ? `🏟️ *Aforo:* ${aforoPorcentaje}% (Quedan ${aforoRestante} entradas)\n` : '') +
         `💰 *TOTAL RECAUDADO:* S/ ${globalTotalRecaudado.toFixed(2)}\n` +
         `💵 *Efectivo Físico en Mano:* S/ ${globalEfectivo.toFixed(2)}\n` +
         `📱 *Cobros Digitales (Yape/Plin):* S/ ${globalDigital.toFixed(2)}\n\n` +
@@ -345,8 +298,8 @@ export default function AdminEventosEntradasScreen() {
     const q = busqueda.toLowerCase().trim();
     const tickets = `${v.numero_ticket_inicio} ${v.numero_ticket_fin}`;
     const colab = (v.colaborador_nombre || '').toLowerCase();
-    const comp = (v.nombre_comprador || '').toLowerCase();
-    const dni = (v.dni_comprador || '').toLowerCase();
+    const comp = (v.nombre_completo || '').toLowerCase();
+    const dni = (v.dni || '').toLowerCase();
     return tickets.includes(q) || colab.includes(q) || comp.includes(q) || dni.includes(q);
   });
 
@@ -374,7 +327,7 @@ export default function AdminEventosEntradasScreen() {
         <View style={{ flex: 1, marginLeft: 8 }}>
           <Text style={[styles.headerTitle, { color: theme.text }]}>Control de Evento & Entradas</Text>
           <Text style={[styles.headerSub, { color: theme.textMuted }]}>
-            {evento?.nombre || 'Gran Evento Deportivo'}
+            {evento?.nombre || 'Gran Evento Deportivo'} • S/ {Number(evento?.precio_entrada || 10).toFixed(2)}
           </Text>
         </View>
 
@@ -457,7 +410,7 @@ export default function AdminEventosEntradasScreen() {
         </View>
 
         {/* ===================================================================== */}
-        {/* TABLA COMPARATIVA DE LOS 5 COLABORADORES (MONITOREO EN VIVO)          */}
+        {/* MONITOR DE COLABORADORES                                              */}
         {/* ===================================================================== */}
         <View style={styles.sectionHeaderRow}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -523,43 +476,11 @@ export default function AdminEventosEntradasScreen() {
         )}
 
         {/* ===================================================================== */}
-        {/* GESTIÓN DE TIPOS DE ENTRADAS & PRECIOS                                 */}
-        {/* ===================================================================== */}
-        <View style={[styles.sectionHeaderRow, { marginTop: 20 }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ticket color="#2563eb" size={20} />
-            <Text style={[styles.sectionTitle, { color: theme.text }]}>Tipos de Entradas Configurados</Text>
-          </View>
-
-          <TouchableOpacity
-            style={styles.addTipoBtn}
-            onPress={() => setModalTipoVisible(true)}
-          >
-            <Plus color="white" size={16} />
-            <Text style={styles.addTipoBtnText}>Agregar</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.tiposGrid}>
-          {tiposEntradas.map(tipo => (
-            <View
-              key={tipo.id}
-              style={[styles.tipoCard, { backgroundColor: theme.card, borderColor: theme.border }]}
-            >
-              <Text style={[styles.tipoNombre, { color: theme.text }]}>{tipo.nombre}</Text>
-              <Text style={[styles.tipoPrecio, { color: theme.primary }]}>
-                S/ {Number(tipo.precio).toFixed(2)}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* ===================================================================== */}
         {/* LOG COMPLETO DE VENTAS & AUDITORÍA                                    */}
         {/* ===================================================================== */}
         <View style={[styles.sectionHeaderRow, { marginTop: 25 }]}>
           <Text style={[styles.sectionTitle, { color: theme.text }]}>
-            Auditoría de Ventas ({ventasFiltradas.length})
+            Auditoría de Entradas ({ventasFiltradas.length})
           </Text>
         </View>
 
@@ -568,7 +489,7 @@ export default function AdminEventosEntradasScreen() {
           <Search color={theme.textMuted} size={18} />
           <TextInput
             style={[styles.searchInput, { color: theme.text }]}
-            placeholder="Buscar por ticket #, colaborador o comprador..."
+            placeholder="Buscar por ticket #, DNI, nombre o colaborador..."
             placeholderTextColor={theme.textMuted}
             value={busqueda}
             onChangeText={setBusqueda}
@@ -618,18 +539,27 @@ export default function AdminEventosEntradasScreen() {
               </View>
 
               <View style={styles.auditBody}>
-                <Text style={[styles.auditColab, { color: theme.text }]}>
-                  👤 Colaborador: {v.colaborador_nombre} • {v.cantidad_total} ent. ({v.metodo_pago})
+                <Text style={[styles.auditBuyer, { color: theme.text }]}>
+                  👤 Titular: {v.nombre_completo || 'Sin nombre'}
                 </Text>
-                {v.nombre_comprador ? (
-                  <Text style={[styles.auditBuyer, { color: theme.textMuted }]}>
-                    🎟️ Comprador: {v.nombre_comprador} {v.dni_comprador ? `(DNI: ${v.dni_comprador})` : ''}
-                  </Text>
-                ) : null}
-                <Text style={[styles.auditTime, { color: theme.textMuted }]}>
-                  🕒 {new Date(v.fecha).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
+                <Text style={[styles.auditDni, { color: theme.textMuted }]}>
+                  🪪 DNI: {v.dni || 'Sin DNI'} • {v.cantidad} ent. ({v.metodo_pago})
+                </Text>
+                <Text style={[styles.auditColab, { color: theme.textMuted }]}>
+                  👨‍💼 Emitido por: {v.colaborador_nombre} • {new Date(v.fecha).toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' })}
                 </Text>
               </View>
+
+              {/* Botón ver comprobante si existe */}
+              {v.url_comprobante ? (
+                <TouchableOpacity
+                  style={styles.btnVerComprobante}
+                  onPress={() => setComprobanteUrlGrande(v.url_comprobante!)}
+                >
+                  <Image source={{ uri: v.url_comprobante }} style={styles.miniComprobanteImg} />
+                  <Text style={styles.btnVerComprobanteText}>Ver Comprobante de Pago</Text>
+                </TouchableOpacity>
+              ) : null}
 
               {isAnulada ? (
                 <View style={styles.auditAnuladaBox}>
@@ -643,7 +573,7 @@ export default function AdminEventosEntradasScreen() {
                     style={styles.auditAnularBtn}
                     onPress={() => anularVentaAdmin(v)}
                   >
-                    <Text style={styles.auditAnularBtnText}>Anular Venta</Text>
+                    <Text style={styles.auditAnularBtnText}>Anular Entrada</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -655,59 +585,7 @@ export default function AdminEventosEntradasScreen() {
       </ScrollView>
 
       {/* ===================================================================== */}
-      {/* MODAL NUEVO TIPO DE ENTRADA                                           */}
-      {/* ===================================================================== */}
-      <Modal
-        visible={modalTipoVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setModalTipoVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { backgroundColor: theme.card }]}>
-            <View style={styles.modalHeaderRow}>
-              <Text style={[styles.modalBoxTitle, { color: theme.text }]}>Nuevo Tipo de Entrada</Text>
-              <TouchableOpacity onPress={() => setModalTipoVisible(false)}>
-                <X color={theme.textMuted} size={22} />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={[styles.inputLabel, { color: theme.textMuted }]}>Nombre de la entrada:</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
-              placeholder="Ej: Entrada Preferencial, General, Niños"
-              placeholderTextColor={theme.textMuted}
-              value={nuevoTipoNombre}
-              onChangeText={setNuevoTipoNombre}
-            />
-
-            <Text style={[styles.inputLabel, { color: theme.textMuted, marginTop: 12 }]}>Precio (S/):</Text>
-            <TextInput
-              style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
-              placeholder="10.00"
-              keyboardType="numeric"
-              placeholderTextColor={theme.textMuted}
-              value={nuevoTipoPrecio}
-              onChangeText={setNuevoTipoPrecio}
-            />
-
-            <AnimatedButton
-              style={styles.modalSaveBtn}
-              onPress={handleGuardarTipoEntrada}
-              disabled={guardandoTipo}
-            >
-              {guardandoTipo ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <Text style={styles.modalSaveBtnText}>Guardar Tipo de Entrada</Text>
-              )}
-            </AnimatedButton>
-          </View>
-        </View>
-      </Modal>
-
-      {/* ===================================================================== */}
-      {/* MODAL CONFIGURACIÓN EVENTO & AFORO                                    */}
+      {/* MODAL CONFIGURACIÓN EVENTO / PRECIO ÚNICO / AFORO                    */}
       {/* ===================================================================== */}
       <Modal
         visible={modalConfigVisible}
@@ -731,6 +609,16 @@ export default function AdminEventosEntradasScreen() {
               placeholderTextColor={theme.textMuted}
               value={eventoNombreInput}
               onChangeText={setEventoNombreInput}
+            />
+
+            <Text style={[styles.inputLabel, { color: theme.textMuted, marginTop: 12 }]}>Precio por Entrada (S/):</Text>
+            <TextInput
+              style={[styles.modalInput, { backgroundColor: theme.background, color: theme.text, borderColor: theme.border }]}
+              placeholder="10.00"
+              keyboardType="numeric"
+              placeholderTextColor={theme.textMuted}
+              value={eventoPrecioInput}
+              onChangeText={setEventoPrecioInput}
             />
 
             <Text style={[styles.inputLabel, { color: theme.textMuted, marginTop: 12 }]}>Lugar / Sede:</Text>
@@ -766,6 +654,33 @@ export default function AdminEventosEntradasScreen() {
               )}
             </AnimatedButton>
           </View>
+        </View>
+      </Modal>
+
+      {/* ===================================================================== */}
+      {/* MODAL VER COMPROBANTE EN GRANDE                                       */}
+      {/* ===================================================================== */}
+      <Modal
+        visible={comprobanteUrlGrande !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setComprobanteUrlGrande(null)}
+      >
+        <View style={styles.modalOverlayGrande}>
+          <TouchableOpacity
+            style={styles.closeModalGrandeBtn}
+            onPress={() => setComprobanteUrlGrande(null)}
+          >
+            <X color="white" size={28} />
+          </TouchableOpacity>
+
+          {comprobanteUrlGrande ? (
+            <Image
+              source={{ uri: comprobanteUrlGrande }}
+              style={styles.comprobanteGrandeImg}
+              resizeMode="contain"
+            />
+          ) : null}
         </View>
       </Modal>
     </SafeAreaView>
@@ -1024,44 +939,6 @@ const styles = StyleSheet.create({
     color: '#9333ea',
   },
 
-  // Tipos de Entradas Grid
-  tiposGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 10,
-  },
-  tipoCard: {
-    flex: 1,
-    minWidth: '45%',
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-  },
-  tipoNombre: {
-    fontSize: 14,
-    fontFamily: fonts.bold,
-  },
-  tipoPrecio: {
-    fontSize: 16,
-    fontFamily: fonts.extraBold,
-    marginTop: 4,
-  },
-  addTipoBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 4,
-  },
-  addTipoBtnText: {
-    color: 'white',
-    fontSize: 12,
-    fontFamily: fonts.bold,
-  },
-
   // Auditoría
   searchBox: {
     flexDirection: 'row',
@@ -1111,17 +988,38 @@ const styles = StyleSheet.create({
   auditBody: {
     gap: 2,
   },
-  auditColab: {
-    fontSize: 13,
-    fontFamily: fonts.semiBold,
-  },
   auditBuyer: {
-    fontSize: 12,
-    fontFamily: fonts.regular,
+    fontSize: 14,
+    fontFamily: fonts.bold,
   },
-  auditTime: {
+  auditDni: {
+    fontSize: 12,
+    fontFamily: fonts.medium,
+  },
+  auditColab: {
     fontSize: 11,
     fontFamily: fonts.regular,
+    marginTop: 2,
+  },
+  btnVerComprobante: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f1f5f9',
+    padding: 6,
+    borderRadius: 8,
+    marginTop: 8,
+    gap: 8,
+  },
+  miniComprobanteImg: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: '#cbd5e1',
+  },
+  btnVerComprobanteText: {
+    fontSize: 12,
+    fontFamily: fonts.semiBold,
+    color: '#2563eb',
   },
   auditAnuladaBox: {
     marginTop: 6,
@@ -1198,5 +1096,25 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 15,
     fontFamily: fonts.bold,
+  },
+
+  // Modal Grande
+  modalOverlayGrande: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  closeModalGrandeBtn: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  comprobanteGrandeImg: {
+    width: '100%',
+    height: '80%',
   },
 });
