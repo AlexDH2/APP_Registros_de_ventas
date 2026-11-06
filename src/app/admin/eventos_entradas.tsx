@@ -171,6 +171,7 @@ export default function AdminEventosEntradasScreen() {
           theme={theme}
           onRefresh={cargarDatos}
           loading={loading}
+          onPressEdit={() => setModalConfigVisible(true)}
         />
 
         {/* Botón para Configurar Evento si no existe */}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ticket, MapPin, Users, RefreshCw, AlertCircle } from 'lucide-react-native';
+import { Ticket, MapPin, Users, RefreshCw, AlertCircle, Edit3 } from 'lucide-react-native';
 import { Evento, MetricasVentas } from '../../types/entradas';
 import { fonts } from '../../theme';
 
@@ -10,6 +10,7 @@ interface EventoHeaderCardProps {
   theme: any;
   onRefresh: () => void;
   loading: boolean;
+  onPressEdit?: () => void;
 }
 
 export default function EventoHeaderCard({
@@ -18,6 +19,7 @@ export default function EventoHeaderCard({
   theme,
   onRefresh,
   loading,
+  onPressEdit,
 }: EventoHeaderCardProps) {
   if (!evento) {
     return (
@@ -62,11 +64,15 @@ export default function EventoHeaderCard({
               <View style={styles.greenDot} />
               <Text style={styles.activeText}>EN VIVO</Text>
             </View>
-            <View style={[styles.pricePill, { backgroundColor: theme.primaryLight }]}>
+            <TouchableOpacity
+              style={[styles.pricePill, { backgroundColor: theme.primaryLight }]}
+              onPress={onPressEdit}
+              disabled={!onPressEdit}
+            >
               <Text style={[styles.pricePillText, { color: theme.primary }]}>
-                S/ {evento.precio_entrada.toFixed(2)} c/u
+                S/ {evento.precio_entrada.toFixed(2)} c/u {onPressEdit ? '✎' : ''}
               </Text>
-            </View>
+            </TouchableOpacity>
           </View>
 
           <Text style={[styles.eventName, { color: theme.text }]} numberOfLines={2}>
@@ -83,13 +89,24 @@ export default function EventoHeaderCard({
           ) : null}
         </View>
 
-        <TouchableOpacity
-          style={[styles.iconButton, { backgroundColor: theme.background }]}
-          onPress={onRefresh}
-          disabled={loading}
-        >
-          <RefreshCw size={18} color={theme.textMuted} />
-        </TouchableOpacity>
+        <View style={styles.topRightActions}>
+          {onPressEdit && (
+            <TouchableOpacity
+              style={[styles.editBadgeBtn, { backgroundColor: theme.primaryLight }]}
+              onPress={onPressEdit}
+            >
+              <Edit3 size={13} color={theme.primary} />
+              <Text style={[styles.editBadgeText, { color: theme.primary }]}>Editar</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[styles.iconButton, { backgroundColor: theme.background }]}
+            onPress={onRefresh}
+            disabled={loading}
+          >
+            <RefreshCw size={16} color={theme.textMuted} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Barra de Aforo en tiempo real */}
@@ -218,10 +235,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.regular,
   },
+  topRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  editBadgeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  editBadgeText: {
+    fontSize: 11,
+    fontFamily: fonts.bold,
+  },
   iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
