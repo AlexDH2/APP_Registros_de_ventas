@@ -1,17 +1,18 @@
 -- ==============================================================================
--- SCRIPT SQL SIMPLIFICADO: VENTA DE ENTRADAS PARA EVENTOS (TIPO ÚNICO + DNI/NOMBRE)
+-- SCRIPT SQL VENTA DE ENTRADAS PARA EVENTOS (ALTA CONCURRENCIA PARA 5 COLABORADORES)
 -- ==============================================================================
--- Compatible con Supabase PostgreSQL.
--- Ejecutar en el SQL Editor de Supabase (Ctrl+A -> Borrar todo -> Pegar -> Run).
+-- Compatible con Supabase PostgreSQL 17.
+-- Bloqueo exclusivo de fila 'FOR UPDATE' que garantiza CERO colisiones o duplicados.
 -- ==============================================================================
 
--- 1. TABLA DE EVENTOS (PRECIO ÚNICO POR ENTRADA)
+-- 1. TABLA DE EVENTOS (PRECIO ÚNICO POR ENTRADA Y CONTROL DE CORRELATIVOS)
 CREATE TABLE IF NOT EXISTS public.eventos (
   id SERIAL PRIMARY KEY,
   nombre TEXT NOT NULL DEFAULT 'Gran Evento Deportivo 2026',
   lugar TEXT DEFAULT 'Complejo Deportivo',
   precio_entrada NUMERIC(10, 2) NOT NULL DEFAULT 10.00,
   aforo_maximo INTEGER DEFAULT NULL, -- NULL = sin límite
+  ultimo_ticket_emitido INTEGER NOT NULL DEFAULT 0,
   estado TEXT NOT NULL DEFAULT 'ACTIVO' CHECK (estado IN ('ACTIVO', 'FINALIZADO', 'PAUSADO')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS public.eventos (
 -- Asegurar columnas si ya existía la tabla
 ALTER TABLE public.eventos ADD COLUMN IF NOT EXISTS precio_entrada NUMERIC(10, 2) NOT NULL DEFAULT 10.00;
 ALTER TABLE public.eventos ADD COLUMN IF NOT EXISTS aforo_maximo INTEGER DEFAULT NULL;
+ALTER TABLE public.eventos ADD COLUMN IF NOT EXISTS ultimo_ticket_emitido INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE public.eventos ADD COLUMN IF NOT EXISTS estado TEXT NOT NULL DEFAULT 'ACTIVO';
 
 -- Insertar evento inicial si está vacía
@@ -26,10 +28,7 @@ INSERT INTO public.eventos (nombre, lugar, precio_entrada, aforo_maximo, estado)
 SELECT 'Gran Evento Deportivo 2026', 'Sede Principal', 10.00, 1000, 'ACTIVO'
 WHERE NOT EXISTS (SELECT 1 FROM public.eventos WHERE estado = 'ACTIVO');
 
--- 2. SECUENCIA ATÓMICA DE NUMERACIÓN CORRELATIVA
-CREATE SEQUENCE IF NOT EXISTS public.seq_correlativo_entradas START WITH 1 INCREMENT BY 1;
-
--- 3. TABLA DE VENTAS DE ENTRADAS (CON NOMBRE, DNI Y COMPROBANTE)
+-- 2. TABLA DE VENTAS DE ENTRADAS (CON NOMBRE, DNI Y COMPROBANTE)
 CREATE TABLE IF NOT EXISTS public.ventas_entradas (
   id SERIAL PRIMARY KEY,
   evento_id INTEGER REFERENCES public.eventos(id) ON DELETE CASCADE,
@@ -52,23 +51,13 @@ CREATE TABLE IF NOT EXISTS public.ventas_entradas (
   fecha TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Asegurar columnas si la tabla ya existía
-ALTER TABLE public.ventas_entradas ADD COLUMN IF NOT EXISTS cantidad INTEGER NOT NULL DEFAULT 1;
-ALTER TABLE public.ventas_entradas ADD COLUMN IF NOT EXISTS precio_unitario NUMERIC(10, 2) NOT NULL DEFAULT 10.00;
-ALTER TABLE public.ventas_entradas ADD COLUMN IF NOT EXISTS nombre_completo TEXT;
-ALTER TABLE public.ventas_entradas ADD COLUMN IF NOT EXISTS dni TEXT;
-ALTER TABLE public.ventas_entradas ADD COLUMN IF NOT EXISTS url_comprobante TEXT;
-ALTER TABLE public.ventas_entradas ADD COLUMN IF NOT EXISTS colaborador_nombre TEXT NOT NULL DEFAULT 'Colaborador';
-ALTER TABLE public.ventas_entradas ADD COLUMN IF NOT EXISTS estado TEXT NOT NULL DEFAULT 'COMPLETADA';
-ALTER TABLE public.ventas_entradas ADD COLUMN IF NOT EXISTS motivo_anulacion TEXT;
-
 -- Índices de alto rendimiento
 CREATE INDEX IF NOT EXISTS idx_ventas_entradas_evento ON public.ventas_entradas(evento_id);
 CREATE INDEX IF NOT EXISTS idx_ventas_entradas_colaborador ON public.ventas_entradas(colaborador_nombre);
 CREATE INDEX IF NOT EXISTS idx_ventas_entradas_dni ON public.ventas_entradas(dni);
 CREATE INDEX IF NOT EXISTS idx_ventas_entradas_fecha ON public.ventas_entradas(fecha DESC);
 
--- 4. FUNCIÓN ATÓMICA DE EMISIÓN DE ENTRADAS (100% THREAD-SAFE PARA 5 COLABORADORES)
+-- 3. FUNCIÓN ATÓMICA DE EMISIÓN DE ENTRADAS (100% THREAD-SAFE CON BLOQUEO FOR UPDATE)
 CREATE OR REPLACE FUNCTION public.emitir_entradas_atomica(
   p_evento_id INT,
   p_cantidad INT,
@@ -86,6 +75,7 @@ CREATE OR REPLACE FUNCTION public.emitir_entradas_atomica(
 )
 RETURNS JSONB AS $$
 DECLARE
+  v_ultimo_ticket INT;
   v_ticket_inicio INT;
   v_ticket_fin INT;
   v_venta_id INT;
@@ -97,8 +87,18 @@ BEGIN
     RAISE EXCEPTION 'La cantidad de entradas debe ser mayor a cero.';
   END IF;
 
-  -- Validar aforo
-  SELECT aforo_maximo INTO v_aforo_max FROM public.eventos WHERE id = p_evento_id;
+  -- BLOQUEO EXCLUSIVO DE FILA: Serializa transacciones concurrentes de los 5 colaboradores
+  SELECT aforo_maximo, COALESCE(ultimo_ticket_emitido, 0)
+  INTO v_aforo_max, v_ultimo_ticket
+  FROM public.eventos
+  WHERE id = p_evento_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'El evento especificado no existe o no está disponible.';
+  END IF;
+
+  -- Validar aforo en tiempo real con datos estrictamente consistentes
   IF v_aforo_max IS NOT NULL THEN
     SELECT COALESCE(SUM(cantidad), 0) INTO v_total_vendidas
     FROM public.ventas_entradas
@@ -110,14 +110,14 @@ BEGIN
     END IF;
   END IF;
 
-  -- Reservar números correlativos atómicamente
-  v_ticket_inicio := nextval('public.seq_correlativo_entradas');
-  IF p_cantidad > 1 THEN
-    PERFORM setval('public.seq_correlativo_entradas', v_ticket_inicio + p_cantidad - 1);
-    v_ticket_fin := v_ticket_inicio + p_cantidad - 1;
-  ELSE
-    v_ticket_fin := v_ticket_inicio;
-  END IF;
+  -- Asignación matemática de correlativos sin posibilidad de colisión
+  v_ticket_inicio := v_ultimo_ticket + 1;
+  v_ticket_fin := v_ultimo_ticket + p_cantidad;
+
+  -- Actualizar el contador del evento
+  UPDATE public.eventos 
+  SET ultimo_ticket_emitido = v_ticket_fin 
+  WHERE id = p_evento_id;
 
   -- Insertar venta
   INSERT INTO public.ventas_entradas (
@@ -181,7 +181,7 @@ GRANT EXECUTE ON FUNCTION public.emitir_entradas_atomica(
   INT, INT, NUMERIC, NUMERIC, TEXT, NUMERIC, NUMERIC, TEXT, TEXT, TEXT, INT, TEXT, TEXT
 ) TO anon, authenticated, service_role;
 
--- 5. POLÍTICAS RLS (ACCESO SEGURO)
+-- 4. POLÍTICAS RLS (ACCESO SEGURO)
 ALTER TABLE public.eventos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ventas_entradas ENABLE ROW LEVEL SECURITY;
 
@@ -193,4 +193,3 @@ CREATE POLICY "permitir_todo_ventas_entradas" ON public.ventas_entradas FOR ALL 
 
 GRANT ALL ON TABLE public.eventos TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.ventas_entradas TO anon, authenticated, service_role;
-GRANT USAGE, SELECT ON SEQUENCE public.seq_correlativo_entradas TO anon, authenticated, service_role;

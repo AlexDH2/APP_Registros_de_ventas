@@ -1,0 +1,303 @@
+import { decode } from 'base64-arraybuffer';
+import { supabase } from './supabase';
+import {
+  Evento,
+  VentaEntrada,
+  ColaboradorResumen,
+  MetricasVentas,
+  DatosEmisionEntrada,
+  ResultadoEmision,
+} from '../types/entradas';
+
+/**
+ * Obtiene el evento activo directamente desde la base de datos Supabase.
+ * NO tiene valores por defecto ni precios fijos en código: todo proviene de la tabla 'eventos'.
+ */
+export async function fetchEventoActivo(): Promise<Evento | null> {
+  const { data, error } = await supabase
+    .from('eventos')
+    .select('*')
+    .eq('estado', 'ACTIVO')
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error al consultar evento activo en Supabase:', error);
+    throw error;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return {
+    id: data.id,
+    nombre: data.nombre,
+    lugar: data.lugar,
+    precio_entrada: Number(data.precio_entrada),
+    aforo_maximo: data.aforo_maximo ? Number(data.aforo_maximo) : null,
+    estado: data.estado,
+    created_at: data.created_at,
+  };
+}
+
+/**
+ * Consulta las ventas de un evento y calcula las métricas tanto del colaborador como globales.
+ */
+export async function fetchMetricasYVentas(
+  eventoId: number,
+  nombreColaborador: string,
+  aforoMaximo: number | null
+): Promise<{
+  metricas: MetricasVentas;
+  misVentas: VentaEntrada[];
+  todasVentas: VentaEntrada[];
+}> {
+  const { data, error } = await supabase
+    .from('ventas_entradas')
+    .select('*')
+    .eq('evento_id', eventoId)
+    .order('id', { ascending: false });
+
+  if (error) {
+    console.error('Error al consultar ventas de entradas:', error);
+    throw error;
+  }
+
+  const todasVentas: VentaEntrada[] = (data || []).map((row: any) => ({
+    id: row.id,
+    evento_id: row.evento_id,
+    numero_ticket_inicio: row.numero_ticket_inicio,
+    numero_ticket_fin: row.numero_ticket_fin,
+    cantidad: row.cantidad,
+    precio_unitario: Number(row.precio_unitario),
+    monto_total: Number(row.monto_total),
+    metodo_pago: row.metodo_pago,
+    monto_recibido: row.monto_recibido ? Number(row.monto_recibido) : null,
+    vuelto: row.vuelto ? Number(row.vuelto) : 0,
+    nombre_completo: row.nombre_completo,
+    dni: row.dni,
+    url_comprobante: row.url_comprobante,
+    colaborador_id: row.colaborador_id,
+    colaborador_nombre: row.colaborador_nombre || 'Colaborador',
+    notas: row.notas,
+    estado: row.estado,
+    motivo_anulacion: row.motivo_anulacion,
+    fecha: row.fecha,
+  }));
+
+  const activas = todasVentas.filter((v) => v.estado === 'COMPLETADA');
+  const misActivas = activas.filter((v) => v.colaborador_nombre === nombreColaborador);
+
+  const misEntradas = misActivas.reduce((acc, v) => acc + (v.cantidad || 0), 0);
+  const miTotal = misActivas.reduce((acc, v) => acc + v.monto_total, 0);
+
+  const globalEntradas = activas.reduce((acc, v) => acc + (v.cantidad || 0), 0);
+  const globalTotal = activas.reduce((acc, v) => acc + v.monto_total, 0);
+
+  const entradasDisponibles =
+    aforoMaximo !== null ? Math.max(0, aforoMaximo - globalEntradas) : null;
+
+  const misVentas = todasVentas.filter((v) => v.colaborador_nombre === nombreColaborador);
+
+  return {
+    metricas: {
+      misEntradas,
+      miTotal,
+      globalEntradas,
+      globalTotal,
+      aforoMaximo,
+      entradasDisponibles,
+    },
+    misVentas,
+    todasVentas,
+  };
+}
+
+/**
+ * Sube una imagen de comprobante (foto o galería) al bucket 'comprobantes' de Supabase Storage.
+ */
+export async function uploadComprobanteEntrada(
+  asset: any,
+  eventoId: number
+): Promise<string | null> {
+  if (!asset || !asset.base64) return null;
+
+  try {
+    const timestamp = Date.now();
+    const fileName = `entradas/evento_${eventoId}_${timestamp}.jpg`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('comprobantes')
+      .upload(fileName, decode(asset.base64), {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.warn('Advertencia al subir comprobante a Supabase Storage:', uploadError);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage.from('comprobantes').getPublicUrl(fileName);
+    return urlData?.publicUrl || null;
+  } catch (err) {
+    console.warn('Fallo inesperado al subir comprobante:', err);
+    return null;
+  }
+}
+
+/**
+ * Emite una venta de entradas llamando al procedimiento atómico de PostgreSQL.
+ * Garantiza total seguridad y números correlativos no repetidos entre los 5 colaboradores simultáneos.
+ */
+export async function emitirVentaEntradas(
+  params: DatosEmisionEntrada
+): Promise<ResultadoEmision> {
+  const montoTotal = Number((params.cantidad * params.precioUnitario).toFixed(2));
+
+  let urlComprobante: string | null = null;
+  if (params.comprobanteAsset) {
+    urlComprobante = await uploadComprobanteEntrada(params.comprobanteAsset, params.eventoId);
+  }
+
+  const { data, error } = await supabase.rpc('emitir_entradas_atomica', {
+    p_evento_id: params.eventoId,
+    p_cantidad: params.cantidad,
+    p_precio_unitario: params.precioUnitario,
+    p_monto_total: montoTotal,
+    p_metodo_pago: params.metodoPago,
+    p_monto_recibido: params.montoRecibido || null,
+    p_vuelto: params.vuelto || 0,
+    p_nombre_completo: params.nombreCompleto?.trim() || null,
+    p_dni: params.dni?.trim() || null,
+    p_url_comprobante: urlComprobante,
+    p_colaborador_id: params.colaboradorId || null,
+    p_colaborador_nombre: params.colaboradorNombre || 'Colaborador',
+    p_notas: params.notas || null,
+  });
+
+  if (error) {
+    console.error('Error RPC emitir_entradas_atomica:', error);
+    throw new Error(error.message || 'Error al procesar la venta en la base de datos.');
+  }
+
+  return data as ResultadoEmision;
+}
+
+/**
+ * Agrupa ventas completadas por colaborador para el monitor administrativo.
+ */
+export function procesarResumenColaboradores(ventas: VentaEntrada[]): ColaboradorResumen[] {
+  const activas = ventas.filter((v) => v.estado === 'COMPLETADA');
+  const mapa: Record<string, ColaboradorResumen> = {};
+
+  activas.forEach((v) => {
+    const nombre = v.colaborador_nombre || 'Colaborador';
+    if (!mapa[nombre]) {
+      mapa[nombre] = {
+        nombre,
+        entradas: 0,
+        efectivo: 0,
+        yape: 0,
+        plin: 0,
+        otros: 0,
+        total: 0,
+        transacciones: 0,
+      };
+    }
+
+    const monto = v.monto_total || 0;
+    mapa[nombre].entradas += v.cantidad || 0;
+    mapa[nombre].total += monto;
+    mapa[nombre].transacciones += 1;
+
+    if (v.metodo_pago === 'Efectivo') {
+      mapa[nombre].efectivo += monto;
+    } else if (v.metodo_pago === 'Yape') {
+      mapa[nombre].yape += monto;
+    } else if (v.metodo_pago === 'Plin') {
+      mapa[nombre].plin += monto;
+    } else {
+      mapa[nombre].otros += monto;
+    }
+  });
+
+  return Object.values(mapa).sort((a, b) => b.total - a.total);
+}
+
+/**
+ * Guarda o actualiza los datos del evento directamente en la base de datos.
+ */
+export async function guardarConfiguracionEvento(datos: {
+  id?: number;
+  nombre: string;
+  lugar?: string;
+  precio_entrada: number;
+  aforo_maximo?: number | null;
+  estado?: 'ACTIVO' | 'PAUSADO' | 'FINALIZADO';
+}): Promise<Evento> {
+  const payload = {
+    nombre: datos.nombre.trim(),
+    lugar: datos.lugar?.trim() || null,
+    precio_entrada: datos.precio_entrada,
+    aforo_maximo: datos.aforo_maximo || null,
+    estado: datos.estado || 'ACTIVO',
+  };
+
+  if (datos.id) {
+    const { data, error } = await supabase
+      .from('eventos')
+      .update(payload)
+      .eq('id', datos.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return {
+      id: data.id,
+      nombre: data.nombre,
+      lugar: data.lugar,
+      precio_entrada: Number(data.precio_entrada),
+      aforo_maximo: data.aforo_maximo ? Number(data.aforo_maximo) : null,
+      estado: data.estado,
+      created_at: data.created_at,
+    };
+  } else {
+    const { data, error } = await supabase
+      .from('eventos')
+      .insert([payload])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return {
+      id: data.id,
+      nombre: data.nombre,
+      lugar: data.lugar,
+      precio_entrada: Number(data.precio_entrada),
+      aforo_maximo: data.aforo_maximo ? Number(data.aforo_maximo) : null,
+      estado: data.estado,
+      created_at: data.created_at,
+    };
+  }
+}
+
+/**
+ * Anula una venta de entradas en la base de datos (función administrativa).
+ */
+export async function anularVentaEntrada(ventaId: number, motivo: string): Promise<void> {
+  const { error } = await supabase
+    .from('ventas_entradas')
+    .update({
+      estado: 'ANULADA',
+      motivo_anulacion: motivo.trim() || 'Anulado por Administración',
+    })
+    .eq('id', ventaId);
+
+  if (error) {
+    console.error('Error al anular venta:', error);
+    throw error;
+  }
+}
