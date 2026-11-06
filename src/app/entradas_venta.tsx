@@ -10,11 +10,13 @@ import {
   useColorScheme,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ticket, Users, Wallet, ArrowLeft, RefreshCw } from 'lucide-react-native';
+import { Ticket, Users, Wallet, ArrowLeft, RefreshCw, X } from 'lucide-react-native';
 import { colors, fonts } from '../theme';
 import {
   Evento,
@@ -65,6 +67,8 @@ export default function EntradasVentaScreen() {
   // Modales
   const [resultadoModal, setResultadoModal] = useState<ResultadoEmision | null>(null);
   const [comprobanteUrlModal, setComprobanteUrlModal] = useState<string | null>(null);
+  const [modalEditarNombreVisible, setModalEditarNombreVisible] = useState<boolean>(false);
+  const [nuevoNombreInput, setNuevoNombreInput] = useState<string>('');
 
   useFocusEffect(
     useCallback(() => {
@@ -145,34 +149,26 @@ export default function EntradasVentaScreen() {
   };
 
   const handleCambiarNombreColaborador = () => {
-    Alert.prompt(
-      'Identificación de Colaborador',
-      'Indica tu nombre o ubicación para registrar tus ventas y cuadre (ej: Puerta Norte - Juan):',
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Guardar',
-          onPress: async (nuevoNombre) => {
-            if (nuevoNombre && nuevoNombre.trim()) {
-              const limpio = nuevoNombre.trim();
-              setColaboradorNombre(limpio);
-              await AsyncStorage.setItem('usuario_nombre', limpio);
-              if (evento) {
-                const { metricas: m, misVentas: mv } = await fetchMetricasYVentas(
-                  evento.id,
-                  limpio,
-                  evento.aforo_maximo
-                );
-                setMetricas(m);
-                setMisVentas(mv);
-              }
-            }
-          },
-        },
-      ],
-      'plain-text',
-      colaboradorNombre === 'Colaborador' ? '' : colaboradorNombre
-    );
+    setNuevoNombreInput(colaboradorNombre === 'Colaborador' ? '' : colaboradorNombre);
+    setModalEditarNombreVisible(true);
+  };
+
+  const handleGuardarNuevoNombre = async () => {
+    if (nuevoNombreInput && nuevoNombreInput.trim()) {
+      const limpio = nuevoNombreInput.trim();
+      setColaboradorNombre(limpio);
+      await AsyncStorage.setItem('usuario_nombre', limpio);
+      if (evento) {
+        const { metricas: m, misVentas: mv } = await fetchMetricasYVentas(
+          evento.id,
+          limpio,
+          evento.aforo_maximo
+        );
+        setMetricas(m);
+        setMisVentas(mv);
+      }
+    }
+    setModalEditarNombreVisible(false);
   };
 
   const puedeVerCuadre = usuarioRol !== 'AUXILIAR';
@@ -325,6 +321,66 @@ export default function EntradasVentaScreen() {
         imageUrl={comprobanteUrlModal}
         onClose={() => setComprobanteUrlModal(null)}
       />
+
+      {/* Modal Identificación de Colaborador (100% Android & iOS) */}
+      <Modal
+        visible={modalEditarNombreVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalEditarNombreVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <View style={styles.modalTopRow}>
+              <Text style={[styles.modalTitle, { color: theme.text }]}>
+                Identificación de Colaborador
+              </Text>
+              <TouchableOpacity
+                onPress={() => setModalEditarNombreVisible(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X size={18} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalSub, { color: theme.textMuted }]}>
+              Indica tu nombre o puesto para registrar tus ventas y cuadre (ej: Rosario - Puerta Norte):
+            </Text>
+
+            <TextInput
+              style={[
+                styles.nombreInput,
+                {
+                  backgroundColor: theme.background,
+                  color: theme.text,
+                  borderColor: theme.border,
+                },
+              ]}
+              value={nuevoNombreInput}
+              onChangeText={setNuevoNombreInput}
+              placeholder="Nombre o puesto..."
+              placeholderTextColor={theme.textMuted}
+              autoFocus
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtnCancel, { borderColor: theme.border }]}
+                onPress={() => setModalEditarNombreVisible(false)}
+              >
+                <Text style={[styles.modalBtnCancelText, { color: theme.text }]}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalBtnConfirm, { backgroundColor: theme.primary }]}
+                onPress={handleGuardarNuevoNombre}
+              >
+                <Text style={styles.modalBtnConfirmText}>Guardar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -394,5 +450,76 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBox: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    gap: 12,
+  },
+  modalTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontFamily: fonts.bold,
+  },
+  modalSub: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: fonts.regular,
+  },
+  nombreInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    fontFamily: fonts.medium,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  modalBtnCancel: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnCancelText: {
+    fontSize: 13,
+    fontFamily: fonts.medium,
+  },
+  modalBtnConfirm: {
+    flex: 1.4,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnConfirmText: {
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    color: '#ffffff',
   },
 });

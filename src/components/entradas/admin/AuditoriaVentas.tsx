@@ -6,6 +6,8 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  Modal,
+  ActivityIndicator,
 } from 'react-native';
 import {
   Search,
@@ -14,6 +16,7 @@ import {
   Image as ImageIcon,
   AlertTriangle,
   XCircle,
+  X,
 } from 'lucide-react-native';
 import { VentaEntrada } from '../../../types/entradas';
 import { fonts } from '../../../theme';
@@ -32,6 +35,9 @@ export default function AuditoriaVentas({
   theme,
 }: AuditoriaVentasProps) {
   const [busqueda, setBusqueda] = useState<string>('');
+  const [ventaParaAnular, setVentaParaAnular] = useState<VentaEntrada | null>(null);
+  const [motivoAnulacion, setMotivoAnulacion] = useState<string>('Error de digitación');
+  const [anulando, setAnulando] = useState<boolean>(false);
 
   const filtradas = ventas.filter((v) => {
     if (!busqueda.trim()) return true;
@@ -47,22 +53,24 @@ export default function AuditoriaVentas({
   });
 
   const handlePromptAnular = (venta: VentaEntrada) => {
-    Alert.prompt(
-      'Anular Venta de Entrada',
-      `¿Seguro que deseas anular los boletos #${venta.numero_ticket_inicio} al #${venta.numero_ticket_fin} por S/ ${venta.monto_total.toFixed(2)}? Ingresa el motivo:`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Anular',
-          style: 'destructive',
-          onPress: async (motivo) => {
-            await onAnularVenta(venta.id, motivo || 'Anulado por Administración');
-          },
-        },
-      ],
-      'plain-text',
-      'Error de digitación'
-    );
+    setVentaParaAnular(venta);
+    setMotivoAnulacion('Error de digitación');
+  };
+
+  const handleConfirmarAnulacion = async () => {
+    if (!ventaParaAnular) return;
+    try {
+      setAnulando(true);
+      await onAnularVenta(
+        ventaParaAnular.id,
+        motivoAnulacion.trim() || 'Anulado por Administración'
+      );
+      setVentaParaAnular(null);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'No se pudo anular la venta.');
+    } finally {
+      setAnulando(false);
+    }
   };
 
   return (
@@ -208,6 +216,88 @@ export default function AuditoriaVentas({
           })
         )}
       </View>
+
+      {/* Modal de Anulación 100% compatible con Android & iOS (sin Alert.prompt) */}
+      <Modal
+        visible={!!ventaParaAnular}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setVentaParaAnular(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <View style={styles.modalTopRow}>
+              <View style={styles.modalTitleRow}>
+                <AlertTriangle size={18} color="#ef4444" />
+                <Text style={[styles.modalTitle, { color: theme.text }]}>Anular Boletos</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setVentaParaAnular(null)}
+                disabled={anulando}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X size={18} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {ventaParaAnular && (
+              <View style={styles.modalBody}>
+                <Text style={[styles.modalSub, { color: theme.textMuted }]}>
+                  ¿Estás seguro de anular la venta{' '}
+                  <Text style={{ fontFamily: fonts.bold, color: theme.text }}>
+                    {ventaParaAnular.cantidad > 1
+                      ? `#${ventaParaAnular.numero_ticket_inicio} al #${ventaParaAnular.numero_ticket_fin}`
+                      : `#${ventaParaAnular.numero_ticket_inicio}`}
+                  </Text>{' '}
+                  por{' '}
+                  <Text style={{ fontFamily: fonts.bold, color: '#16a34a' }}>
+                    S/ {ventaParaAnular.monto_total.toFixed(2)}
+                  </Text>
+                  ?
+                </Text>
+
+                <Text style={[styles.inputLabel, { color: theme.text }]}>Motivo de la anulación:</Text>
+                <TextInput
+                  style={[
+                    styles.motivoInput,
+                    {
+                      backgroundColor: theme.background,
+                      color: theme.text,
+                      borderColor: theme.border,
+                    },
+                  ]}
+                  value={motivoAnulacion}
+                  onChangeText={setMotivoAnulacion}
+                  placeholder="Ej: Error de digitación, cliente canceló..."
+                  placeholderTextColor={theme.textMuted}
+                />
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={[styles.modalBtnCancel, { borderColor: theme.border }]}
+                    onPress={() => setVentaParaAnular(null)}
+                    disabled={anulando}
+                  >
+                    <Text style={[styles.modalBtnCancelText, { color: theme.text }]}>Cancelar</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.modalBtnConfirm, { backgroundColor: '#ef4444' }]}
+                    onPress={handleConfirmarAnulacion}
+                    disabled={anulando}
+                  >
+                    {anulando ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <Text style={styles.modalBtnConfirmText}>Confirmar Anulación</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -380,5 +470,89 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     textAlign: 'center',
     paddingVertical: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalBox: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  modalTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontFamily: fonts.bold,
+  },
+  modalBody: {
+    gap: 12,
+  },
+  modalSub: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontFamily: fonts.regular,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontFamily: fonts.semiBold,
+    marginTop: 4,
+  },
+  motivoInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    fontFamily: fonts.regular,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
+  },
+  modalBtnCancel: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnCancelText: {
+    fontSize: 13,
+    fontFamily: fonts.medium,
+  },
+  modalBtnConfirm: {
+    flex: 1.4,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBtnConfirmText: {
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    color: '#ffffff',
   },
 });
