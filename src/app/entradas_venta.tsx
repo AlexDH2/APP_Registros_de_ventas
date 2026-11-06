@@ -42,6 +42,7 @@ export default function EntradasVentaScreen() {
   // Sesión y Colaborador
   const [colaboradorId, setColaboradorId] = useState<number | null>(null);
   const [colaboradorNombre, setColaboradorNombre] = useState<string>('Colaborador');
+  const [usuarioRol, setUsuarioRol] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'VENTA' | 'HISTORIAL' | 'CUADRE'>('VENTA');
 
   // Datos en Vivo desde la Base de Datos
@@ -68,6 +69,7 @@ export default function EntradasVentaScreen() {
   useFocusEffect(
     useCallback(() => {
       cargarDatos();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [])
   );
 
@@ -77,8 +79,16 @@ export default function EntradasVentaScreen() {
 
       const savedUserId = await AsyncStorage.getItem('usuario_id');
       const savedUserNombre = await AsyncStorage.getItem('usuario_nombre');
+      const savedUserRol = await AsyncStorage.getItem('usuario_rol');
       if (savedUserId) setColaboradorId(parseInt(savedUserId, 10));
       if (savedUserNombre) setColaboradorNombre(savedUserNombre);
+      if (savedUserRol) {
+        const rolLimpio = savedUserRol.toUpperCase().trim();
+        setUsuarioRol(rolLimpio);
+        if (rolLimpio === 'AUXILIAR' && activeTab === 'CUADRE') {
+          setActiveTab('VENTA');
+        }
+      }
 
       const nombreActual = savedUserNombre || 'Colaborador';
 
@@ -165,6 +175,8 @@ export default function EntradasVentaScreen() {
     );
   };
 
+  const puedeVerCuadre = usuarioRol !== 'AUXILIAR';
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView
@@ -234,20 +246,22 @@ export default function EntradasVentaScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'CUADRE' && { borderBottomColor: theme.primary }]}
-            onPress={() => setActiveTab('CUADRE')}
-          >
-            <Wallet size={16} color={activeTab === 'CUADRE' ? theme.primary : theme.textMuted} />
-            <Text
-              style={[
-                styles.tabBtnText,
-                { color: activeTab === 'CUADRE' ? theme.primary : theme.textMuted },
-              ]}
+          {puedeVerCuadre && (
+            <TouchableOpacity
+              style={[styles.tabBtn, activeTab === 'CUADRE' && { borderBottomColor: theme.primary }]}
+              onPress={() => setActiveTab('CUADRE')}
             >
-              Mi Cuadre
-            </Text>
-          </TouchableOpacity>
+              <Wallet size={16} color={activeTab === 'CUADRE' ? theme.primary : theme.textMuted} />
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  { color: activeTab === 'CUADRE' ? theme.primary : theme.textMuted },
+                ]}
+              >
+                Mi Cuadre
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Contenido de la Pestaña Activa */}
@@ -286,7 +300,7 @@ export default function EntradasVentaScreen() {
           />
         )}
 
-        {activeTab === 'CUADRE' && evento && (
+        {activeTab === 'CUADRE' && puedeVerCuadre && evento && (
           <CuadreCajaTab
             evento={evento}
             colaboradorNombre={colaboradorNombre}
