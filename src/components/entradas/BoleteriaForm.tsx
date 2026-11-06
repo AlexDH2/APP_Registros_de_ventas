@@ -19,8 +19,9 @@ import {
   CreditCard,
   DollarSign,
   Ticket,
+  Copy,
 } from 'lucide-react-native';
-import { Evento, MetodoPagoEntrada, DatosEmisionEntrada } from '../../types/entradas';
+import { Evento, MetodoPagoEntrada, DatosEmisionEntrada, AsistenteTicket } from '../../types/entradas';
 import { fonts } from '../../theme';
 import AnimatedButton from '../AnimatedButton';
 import ComprobantePicker from './ComprobantePicker';
@@ -43,8 +44,7 @@ export default function BoleteriaForm({
   onEmitir,
 }: BoleteriaFormProps) {
   const [cantidad, setCantidad] = useState<number>(1);
-  const [nombreCompleto, setNombreCompleto] = useState<string>('');
-  const [dni, setDni] = useState<string>('');
+  const [asistentes, setAsistentes] = useState<AsistenteTicket[]>([{ nombre: '', dni: '' }]);
   const [metodoPago, setMetodoPago] = useState<MetodoPagoEntrada>('Efectivo');
   const [montoRecibido, setMontoRecibido] = useState<string>('');
   const [image, setImage] = useState<ImagePickerAsset | null>(null);
@@ -62,13 +62,55 @@ export default function BoleteriaForm({
       Alert.alert('Límite por compra', 'Máximo 50 entradas por transacción.');
       return;
     }
-    setCantidad((prev) => prev + 1);
+    setCantidad((prev) => {
+      const next = prev + 1;
+      setAsistentes((curr) => {
+        const copia = [...curr];
+        while (copia.length < next) {
+          copia.push({ nombre: '', dni: '' });
+        }
+        return copia;
+      });
+      return next;
+    });
   };
 
   const handleDecrement = () => {
     if (cantidad > 1) {
-      setCantidad((prev) => prev - 1);
+      setCantidad((prev) => {
+        const next = prev - 1;
+        setAsistentes((curr) => curr.slice(0, next));
+        return next;
+      });
     }
+  };
+
+  const handleUpdateAsistente = (index: number, campo: 'nombre' | 'dni', valor: string) => {
+    setAsistentes((prev) => {
+      const copia = [...prev];
+      while (copia.length <= index) {
+        copia.push({ nombre: '', dni: '' });
+      }
+      copia[index] = { ...copia[index], [campo]: valor };
+      return copia;
+    });
+  };
+
+  const handleCopiarDatosTitular = () => {
+    const titular = asistentes[0];
+    if (!titular || (!titular.nombre?.trim() && !titular.dni?.trim())) {
+      Alert.alert('Aviso', 'Ingresa primero el nombre o DNI del Ticket #1 (Titular).');
+      return;
+    }
+    setAsistentes((prev) => {
+      return prev.map((item, idx) => {
+        if (idx === 0) return item;
+        return {
+          nombre: titular.nombre ? `${titular.nombre.trim()} (Acompañante ${idx + 1})` : item.nombre,
+          dni: item.dni || titular.dni,
+        };
+      });
+    });
   };
 
   const setBilletesRapidos = (monto: number) => {
@@ -93,6 +135,13 @@ export default function BoleteriaForm({
       }
     }
 
+    const asistentesLimpio: AsistenteTicket[] = Array.from({ length: cantidad }).map((_, idx) => ({
+      ticket: idx + 1,
+      nombre: (asistentes[idx]?.nombre || '').trim(),
+      dni: (asistentes[idx]?.dni || '').trim(),
+    }));
+    const primerAsistente = asistentesLimpio[0] || { nombre: '', dni: '' };
+
     await onEmitir({
       eventoId: evento.id,
       cantidad,
@@ -100,8 +149,9 @@ export default function BoleteriaForm({
       metodoPago,
       montoRecibido: recibidoNum > 0 ? recibidoNum : null,
       vuelto: vuelto > 0 ? vuelto : 0,
-      nombreCompleto: nombreCompleto.trim(),
-      dni: dni.trim(),
+      nombreCompleto: primerAsistente.nombre,
+      dni: primerAsistente.dni,
+      asistentes: asistentesLimpio,
       comprobanteAsset: image,
       colaboradorId,
       colaboradorNombre,
@@ -109,8 +159,7 @@ export default function BoleteriaForm({
 
     // Resetear formulario tras emitir con éxito
     setCantidad(1);
-    setNombreCompleto('');
-    setDni('');
+    setAsistentes([{ nombre: '', dni: '' }]);
     setMontoRecibido('');
     setImage(null);
   };
@@ -156,36 +205,113 @@ export default function BoleteriaForm({
         </Text>
       </View>
 
-      {/* 3. Datos del Asistente / Titular */}
-      <View style={styles.sectionHeader}>
-        <User size={16} color={theme.primary} />
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Titular de la Entrada</Text>
+      {/* 3. Datos de los Asistentes (Formularios Dinámicos según la Cantidad) */}
+      <View style={styles.sectionHeaderBetween}>
+        <View style={styles.sectionHeaderLeft}>
+          <User size={16} color={theme.primary} />
+          <Text style={[styles.sectionTitle, { color: theme.text }]}>
+            {cantidad === 1 ? 'Datos del Titular / Asistente' : `Datos de los Asistentes (${cantidad})`}
+          </Text>
+        </View>
+        {cantidad > 1 && (
+          <TouchableOpacity
+            style={[styles.copiarBtn, { backgroundColor: theme.primaryLight, borderColor: theme.border }]}
+            onPress={handleCopiarDatosTitular}
+            disabled={procesando}
+          >
+            <Copy size={12} color={theme.primary} />
+            <Text style={[styles.copiarBtnText, { color: theme.primary }]}>Repetir Titular</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      <View style={styles.inputGroup}>
-        <View style={[styles.inputWrapper, { backgroundColor: theme.background, borderColor: theme.border }]}>
-          <User size={16} color={theme.textMuted} style={styles.inputIcon} />
-          <TextInput
-            style={[styles.input, { color: theme.text }]}
-            placeholder="Nombre completo (Opcional)"
-            placeholderTextColor={theme.textMuted}
-            value={nombreCompleto}
-            onChangeText={setNombreCompleto}
-            editable={!procesando}
-          />
-        </View>
+      <View style={styles.asistentesList}>
+        {Array.from({ length: cantidad }).map((_, index) => {
+          const item = asistentes[index] || { nombre: '', dni: '' };
+          const esPrincipal = index === 0;
 
-        <View style={[styles.inputWrapper, { backgroundColor: theme.background, borderColor: theme.border }]}>
-          <IdCard size={16} color={theme.textMuted} style={styles.inputIcon} />
-          <TextInput
-            style={[styles.input, { color: theme.text }]}
-            placeholder="DNI / Documento (Opcional)"
-            placeholderTextColor={theme.textMuted}
-            value={dni}
-            onChangeText={(txt) => setDni(txt.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12))}
-            editable={!procesando}
-          />
-        </View>
+          return (
+            <View
+              key={`asistente-box-${index}`}
+              style={[
+                styles.asistenteCard,
+                {
+                  backgroundColor: theme.background,
+                  borderColor: esPrincipal ? '#93c5fd' : theme.border,
+                },
+              ]}
+            >
+              <View style={styles.asistenteCardHeader}>
+                <View
+                  style={[
+                    styles.ticketIndexBadge,
+                    { backgroundColor: esPrincipal ? '#2563eb' : theme.card },
+                  ]}
+                >
+                  <Ticket size={11} color={esPrincipal ? '#ffffff' : theme.textMuted} />
+                  <Text
+                    style={[
+                      styles.ticketIndexBadgeText,
+                      { color: esPrincipal ? '#ffffff' : theme.text },
+                    ]}
+                  >
+                    Ticket #{index + 1} {esPrincipal ? '• Titular' : ''}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    { backgroundColor: theme.card, borderColor: theme.border },
+                  ]}
+                >
+                  <User size={15} color={theme.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: theme.text }]}
+                    placeholder={
+                      esPrincipal
+                        ? 'Nombre completo (Opcional)'
+                        : `Nombre del Asistente ${index + 1} (Opcional)`
+                    }
+                    placeholderTextColor={theme.textMuted}
+                    value={item.nombre}
+                    onChangeText={(txt) => handleUpdateAsistente(index, 'nombre', txt)}
+                    editable={!procesando}
+                  />
+                </View>
+
+                <View
+                  style={[
+                    styles.inputWrapper,
+                    { backgroundColor: theme.card, borderColor: theme.border },
+                  ]}
+                >
+                  <IdCard size={15} color={theme.textMuted} style={styles.inputIcon} />
+                  <TextInput
+                    style={[styles.input, { color: theme.text }]}
+                    placeholder={
+                      esPrincipal
+                        ? 'DNI / Documento (Opcional)'
+                        : `DNI Asistente ${index + 1} (Opcional)`
+                    }
+                    placeholderTextColor={theme.textMuted}
+                    value={item.dni}
+                    onChangeText={(txt) =>
+                      handleUpdateAsistente(
+                        index,
+                        'dni',
+                        txt.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12)
+                      )
+                    }
+                    editable={!procesando}
+                  />
+                </View>
+              </View>
+            </View>
+          );
+        })}
       </View>
 
       {/* 4. Método de Pago */}
@@ -345,6 +471,58 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 10,
     marginBottom: 8,
+  },
+  sectionHeaderBetween: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    marginBottom: 8,
+  },
+  sectionHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  copiarBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  copiarBtnText: {
+    fontSize: 10,
+    fontFamily: fonts.semiBold,
+  },
+  asistentesList: {
+    gap: 10,
+    marginBottom: 6,
+  },
+  asistenteCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 10,
+    gap: 8,
+  },
+  asistenteCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  ticketIndexBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  ticketIndexBadgeText: {
+    fontSize: 10,
+    fontFamily: fonts.bold,
   },
   sectionTitle: {
     fontSize: 13,

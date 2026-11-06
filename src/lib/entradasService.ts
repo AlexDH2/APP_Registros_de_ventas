@@ -78,6 +78,7 @@ export async function fetchMetricasYVentas(
     vuelto: row.vuelto ? Number(row.vuelto) : 0,
     nombre_completo: row.nombre_completo,
     dni: row.dni,
+    asistentes: row.asistentes || null,
     url_comprobante: row.url_comprobante,
     colaborador_id: row.colaborador_id,
     colaborador_nombre: row.colaborador_nombre || 'Colaborador',
@@ -176,6 +177,7 @@ export async function emitirVentaEntradas(
     p_colaborador_id: params.colaboradorId || null,
     p_colaborador_nombre: params.colaboradorNombre || 'Colaborador',
     p_notas: params.notas || null,
+    p_asistentes: params.asistentes || [],
   });
 
   if (error) {

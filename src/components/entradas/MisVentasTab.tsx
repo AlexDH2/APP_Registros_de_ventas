@@ -100,6 +100,21 @@ export default function MisVentasTab({
               </Text>
             </View>
           ) : null}
+
+          {item.asistentes && item.asistentes.length > 1 ? (
+            <View style={[styles.asistentesMiniList, { borderTopColor: theme.border }]}>
+              {item.asistentes.map((a, idx) => (
+                <Text
+                  key={idx}
+                  style={[styles.asistenteChipText, { color: theme.textMuted }]}
+                  numberOfLines={1}
+                >
+                  • #{a.ticket || item.numero_ticket_inicio + idx}: {a.nombre || 'Al portador'}{' '}
+                  {a.dni ? `(${a.dni})` : ''}
+                </Text>
+              ))}
+            </View>
+          ) : null}
         </View>
 
         {/* Footer con método de pago, monto y hora */}
@@ -210,6 +225,16 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 13,
     fontFamily: fonts.medium,
+  },
+  asistentesMiniList: {
+    borderTopWidth: 1,
+    paddingTop: 6,
+    marginTop: 4,
+    gap: 3,
+  },
+  asistenteChipText: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
   },
   footerRow: {
     flexDirection: 'row',

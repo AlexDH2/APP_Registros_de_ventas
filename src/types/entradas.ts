@@ -12,6 +12,12 @@ export interface Evento {
 
 export type MetodoPagoEntrada = 'Efectivo' | 'Yape' | 'Plin' | 'Tarjeta' | 'Transferencia';
 
+export interface AsistenteTicket {
+  ticket?: number;
+  nombre: string;
+  dni: string;
+}
+
 export interface VentaEntrada {
   id: number;
   evento_id: number;
@@ -25,6 +31,7 @@ export interface VentaEntrada {
   vuelto?: number | null;
   nombre_completo?: string | null;
   dni?: string | null;
+  asistentes?: AsistenteTicket[] | null;
   url_comprobante?: string | null;
   colaborador_id?: number | null;
   colaborador_nombre: string;
@@ -63,6 +70,7 @@ export interface DatosEmisionEntrada {
   vuelto?: number | null;
   nombreCompleto?: string;
   dni?: string;
+  asistentes?: AsistenteTicket[];
   comprobanteAsset?: ImagePickerAsset | null;
   colaboradorId?: number | null;
   colaboradorNombre: string;
@@ -81,4 +89,5 @@ export interface ResultadoEmision {
   colaborador_nombre: string;
   nombre_completo?: string;
   dni?: string;
+  asistentes?: AsistenteTicket[];
 }

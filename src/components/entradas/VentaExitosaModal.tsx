@@ -31,13 +31,28 @@ export default function VentaExitosaModal({
     const eventoNombre = evento ? evento.nombre : 'Evento';
     const eventoLugar = evento && evento.lugar ? ` (${evento.lugar})` : '';
 
+    let detalleAsistentesMsg = '';
+    if (venta.asistentes && venta.asistentes.length > 1) {
+      detalleAsistentesMsg =
+        '\n👥 *Detalle de Boletos por Asistente:*\n' +
+        venta.asistentes
+          .map(
+            (a, idx) =>
+              `• Ticket #${a.ticket || venta.ticket_inicio + idx}: ${
+                a.nombre || 'Al portador'
+              }${a.dni ? ` (DNI: ${a.dni})` : ''}`
+          )
+          .join('\n') +
+        '\n';
+    }
+
     const mensaje = `🎟️ *COMPROBANTE DE ENTRADA DIGITAL*
 🏟️ *Evento:* ${eventoNombre}${eventoLugar}
 🎫 *Boleto(s):* ${ticketsText}
 👤 *Titular:* ${venta.nombre_completo || 'Público General'}${
       venta.dni ? ` (DNI: ${venta.dni})` : ''
     }
-🔢 *Cantidad:* ${venta.cantidad} entrada(s)
+🔢 *Cantidad:* ${venta.cantidad} entrada(s)${detalleAsistentesMsg}
 💰 *Total Pagado:* S/ ${venta.monto_total.toFixed(2)} (${venta.metodo_pago})
 👤 *Atendido por:* ${venta.colaborador_nombre}
 
@@ -114,6 +129,26 @@ export default function VentaExitosaModal({
                 <Text style={[styles.detailAmount, { color: '#16a34a' }]}>
                   S/ {venta.vuelto.toFixed(2)}
                 </Text>
+              </View>
+            ) : null}
+
+            {venta.asistentes && venta.asistentes.length > 1 ? (
+              <View style={[styles.asistentesBox, { borderTopColor: theme.border }]}>
+                <Text style={[styles.asistentesTitle, { color: theme.textMuted }]}>
+                  Asistentes ({venta.asistentes.length}):
+                </Text>
+                {venta.asistentes.map((a, idx) => (
+                  <View key={`asist-modal-${idx}`} style={styles.asistenteRow}>
+                    <View style={styles.ticketPillSmall}>
+                      <Text style={styles.ticketPillSmallText}>
+                        #{a.ticket || venta.ticket_inicio + idx}
+                      </Text>
+                    </View>
+                    <Text style={[styles.asistenteNombreText, { color: theme.text }]} numberOfLines={1}>
+                      {a.nombre || 'Al portador'} {a.dni ? `• DNI: ${a.dni}` : ''}
+                    </Text>
+                  </View>
+                ))}
               </View>
             ) : null}
           </View>
@@ -230,6 +265,38 @@ const styles = StyleSheet.create({
   detailValue: {
     fontSize: 12,
     fontFamily: fonts.semiBold,
+  },
+  asistentesBox: {
+    borderTopWidth: 1,
+    paddingTop: 8,
+    marginTop: 4,
+    gap: 4,
+  },
+  asistentesTitle: {
+    fontSize: 11,
+    fontFamily: fonts.semiBold,
+    marginBottom: 2,
+  },
+  asistenteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  ticketPillSmall: {
+    backgroundColor: '#dbeafe',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  ticketPillSmallText: {
+    fontSize: 10,
+    fontFamily: fonts.bold,
+    color: '#1d4ed8',
+  },
+  asistenteNombreText: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: fonts.medium,
   },
   whatsappBtn: {
     backgroundColor: '#16a34a',

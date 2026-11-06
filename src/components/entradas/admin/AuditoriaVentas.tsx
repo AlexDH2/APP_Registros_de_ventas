@@ -48,7 +48,13 @@ export default function AuditoriaVentas({
       (v.colaborador_nombre && v.colaborador_nombre.toLowerCase().includes(term)) ||
       v.numero_ticket_inicio.toString().includes(term) ||
       v.numero_ticket_fin.toString().includes(term) ||
-      v.metodo_pago.toLowerCase().includes(term)
+      v.metodo_pago.toLowerCase().includes(term) ||
+      (v.asistentes &&
+        v.asistentes.some(
+          (a) =>
+            (a.nombre && a.nombre.toLowerCase().includes(term)) ||
+            (a.dni && a.dni.toLowerCase().includes(term))
+        ))
     );
   });
 
@@ -174,6 +180,21 @@ export default function AuditoriaVentas({
                     </Text>
                   </View>
                 </View>
+
+                {v.asistentes && v.asistentes.length > 1 ? (
+                  <View style={[styles.asistentesMiniList, { borderTopColor: theme.border }]}>
+                    {v.asistentes.map((a, idx) => (
+                      <Text
+                        key={idx}
+                        style={[styles.asistenteAuditText, { color: theme.textMuted }]}
+                        numberOfLines={1}
+                      >
+                        • #{a.ticket || v.numero_ticket_inicio + idx}: {a.nombre || 'Al portador'}{' '}
+                        {a.dni ? `(${a.dni})` : ''}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
 
                 {isAnulada && v.motivo_anulacion ? (
                   <View style={styles.anuladaMotivoRow}>
@@ -428,6 +449,16 @@ const styles = StyleSheet.create({
     color: '#ef4444',
     fontSize: 10,
     fontFamily: fonts.medium,
+  },
+  asistentesMiniList: {
+    borderTopWidth: 1,
+    paddingTop: 6,
+    marginBottom: 6,
+    gap: 3,
+  },
+  asistenteAuditText: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
   },
   actionRow: {
     flexDirection: 'row',
