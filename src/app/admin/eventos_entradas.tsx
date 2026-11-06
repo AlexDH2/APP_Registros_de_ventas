@@ -231,18 +231,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderBottomWidth: 1,
+    gap: 8,
   },
   backBtn: {
     padding: 6,
-    marginRight: 6,
   },
   topBarCenter: {
     flex: 1,
   },
   topBarTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: fonts.bold,
   },
   topBarSub: {

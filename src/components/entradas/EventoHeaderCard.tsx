@@ -146,16 +146,16 @@ export default function EventoHeaderCard({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 14,
+    padding: 14,
     marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: 8,
+    marginBottom: 6,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
     elevation: 2,
   },
   topRow: {
