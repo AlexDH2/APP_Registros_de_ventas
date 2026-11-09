@@ -147,7 +147,7 @@ export default function BoleteriaForm({
       cantidad,
       precioUnitario,
       metodoPago,
-      montoRecibido: recibidoNum > 0 ? recibidoNum : null,
+      montoRecibido: recibidoNum > 0 ? recibidoNum : total,
       vuelto: vuelto > 0 ? vuelto : 0,
       nombreCompleto: primerAsistente.nombre,
       dni: primerAsistente.dni,

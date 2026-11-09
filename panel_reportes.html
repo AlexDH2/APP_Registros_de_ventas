@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Administrativo de Ventas & Reportes</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Supabase JS CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- SheetJS (xlsx) for native Excel export -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts: Poppins -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Poppins', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              500: '#2563eb',
+              600: '#1d4ed8',
+              700: '#1e40af',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      body {
+        background-color: white !important;
+        color: black !important;
+        font-size: 11pt;
+      }
+      .print-header {
+        display: block !important;
+      }
+      .card-shadow {
+        box-shadow: none !important;
+        border: 1px solid #e2e8f0 !important;
+      }
+      table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+      }
+      th, td {
+        border: 1px solid #cbd5e1 !important;
+        padding: 6px !important;
+      }
+    }
+    .print-header {
+      display: none;
+    }
+    /* Estilos de scrollbar personalizados */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen">
+
+  <!-- Header de Impresión (Solo visible al imprimir o guardar en PDF) -->
+  <div class="print-header p-6 border-b border-slate-300">
+    <div class="flex justify-between items-center">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">REPORTE OFICIAL DE VENTAS Y CUADRE DE CAJA</h1>
+        <p class="text-sm text-slate-600" id="printEventoInfo">Evento: Gran Evento Deportivo 2026</p>
+      </div>
+      <div class="text-right">
+        <p class="text-sm font-semibold text-slate-800" id="printFecha">Fecha de emisión: --</p>
+        <p class="text-xs text-slate-500">Sistema Registro_Ventas</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra Superior de Navegación (no-print) -->
+  <header class="no-print bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Logo y Título -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+          <i data-lucide="ticket" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-lg font-bold text-slate-900 leading-tight">Control de Ventas & Eventos</h1>
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              EN VIVO
+            </span>
+          </div>
+          <p class="text-xs text-slate-500" id="headerSub">Cargando evento...</p>
+        </div>
+      </div>
+
+      <!-- Acciones Rápidas -->
+      <div class="flex items-center space-x-2">
+        <!-- Indicador de última actualización -->
+        <span class="hidden md:inline-block text-xs text-slate-500 mr-2" id="lastUpdateText">
+          Actualizado hace instantes
+        </span>
+
+        <!-- Botón Refrescar -->
+        <button id="btnRefresh" onclick="cargarTodo()" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition">
+          <i data-lucide="refresh-cw" class="w-4 h-4" id="iconRefresh"></i>
+          <span class="hidden sm:inline">Actualizar</span>
+        </button>
+
+        <!-- Botón Exportar Excel -->
+        <button onclick="exportarExcel()" class="inline-flex items-center gap-1.5 px-3.5 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-lg shadow-sm shadow-emerald-600/20 transition">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+          <span>Descargar Excel</span>
+        </button>
+
+        <!-- Botón Imprimir / PDF -->
+        <button onclick="window.print()" class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg shadow-sm transition">
+          <i data-lucide="printer" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Imprimir PDF</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Contenedor Principal -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Fila 1: Tarjetas de Métricas Principales (KPIs) -->
+    <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      
+      <!-- Recaudación Total -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Recaudación Total</span>
+          <div class="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="dollar-sign" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3">
+          <div class="text-2xl font-bold text-emerald-600" id="kpiTotalMonto">S/ 0.00</div>
+          <p class="text-xs text-slate-400 mt-1" id="kpiTotalMontoSub">Todas las ventas activas</p>
+        </div>
+      </div>
+
+      <!-- Total Entradas Vendidas -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Boletos Emitidos</span>
+          <div class="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+            <i data-lucide="ticket" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3">
+          <div class="text-2xl font-bold text-blue-600" id="kpiTotalEntradas">0</div>
+          <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+            <div id="kpiProgressBar" class="bg-blue-600 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+          <p class="text-xs text-slate-400 mt-1" id="kpiAforoSub">De 1000 aforo (quedan 1000)</p>
+        </div>
+      </div>
+
+      <!-- Efectivo en Mano (A Rendir) -->
+      <div class="bg-white rounded-2xl p-5 border border-emerald-200 bg-emerald-50/30 shadow-sm flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-emerald-800 uppercase tracking-wider">Efectivo Físico</span>
+          <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+            <i data-lucide="banknote" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3">
+          <div class="text-2xl font-bold text-emerald-700" id="kpiTotalEfectivo">S/ 0.00</div>
+          <p class="text-xs text-emerald-600/80 mt-1">Billetes y monedas en caja</p>
+        </div>
+      </div>
+
+      <!-- Total Digital (Yape / Plin) -->
+      <div class="bg-white rounded-2xl p-5 border border-purple-200 bg-purple-50/20 shadow-sm flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-purple-800 uppercase tracking-wider">Yape & Plin</span>
+          <div class="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
+            <i data-lucide="smartphone" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3">
+          <div class="text-2xl font-bold text-purple-700" id="kpiTotalDigital">S/ 0.00</div>
+          <p class="text-xs text-purple-600/80 mt-1" id="kpiDigitalSub">Yape: S/ 0 | Plin: S/ 0</p>
+        </div>
+      </div>
+
+      <!-- Transacciones / Operaciones -->
+      <div class="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm flex flex-col justify-between">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Operaciones</span>
+          <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center">
+            <i data-lucide="users" class="w-4 h-4"></i>
+          </div>
+        </div>
+        <div class="mt-3">
+          <div class="text-2xl font-bold text-slate-800" id="kpiTotalTransacciones">0</div>
+          <p class="text-xs text-slate-400 mt-1" id="kpiAnuladasSub">0 anulaciones registradas</p>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Fila 2: Cuadre de Caja por Colaborador -->
+    <section class="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="wallet" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h2 class="text-sm font-bold text-slate-800">Cuadre de Caja por Colaborador</h2>
+            <p class="text-xs text-slate-500">Desglose de efectivo y pagos digitales por cada punto de atención</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50/70">
+              <th class="py-3 px-4">Colaborador</th>
+              <th class="py-3 px-4 text-center">Boletos</th>
+              <th class="py-3 px-4 text-right">Efectivo a Rendir</th>
+              <th class="py-3 px-4 text-right">Yape</th>
+              <th class="py-3 px-4 text-right">Plin</th>
+              <th class="py-3 px-4 text-right">Otros</th>
+              <th class="py-3 px-4 text-right font-bold text-slate-700">Total Recaudado</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyColaboradores" class="divide-y divide-slate-100 text-sm">
+            <tr>
+              <td colspan="7" class="py-6 text-center text-slate-400">Cargando resumen de colaboradores...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Fila 3: Filtros de Búsqueda y Tabla Detallada -->
+    <section class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+      
+      <!-- Cabecera de la sección y barra de filtros (no-print) -->
+      <div class="p-5 border-b border-slate-100 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <i data-lucide="list-ordered" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h2 class="text-sm font-bold text-slate-800">Registro Detallado de Ventas</h2>
+              <p class="text-xs text-slate-500">Auditoría completa de boletos correlativos y asistentes</p>
+            </div>
+          </div>
+          <span class="text-xs text-slate-500 font-medium" id="totalFiltradosText">
+            Mostrando 0 ventas
+          </span>
+        </div>
+
+        <!-- Filtros interactivos -->
+        <div class="no-print grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
+          
+          <!-- Buscador Universal -->
+          <div class="relative">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3 top-3 text-slate-400"></i>
+            <input 
+              type="text" 
+              id="inputBusqueda" 
+              placeholder="Buscar por ticket, DNI, nombre..." 
+              oninput="aplicarFiltros()"
+              class="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+            >
+          </div>
+
+          <!-- Filtro Colaborador -->
+          <div>
+            <select 
+              id="selectColaborador" 
+              onchange="aplicarFiltros()" 
+              class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+            >
+              <option value="">Todos los colaboradores</option>
+            </select>
+          </div>
+
+          <!-- Filtro Método de Pago -->
+          <div>
+            <select 
+              id="selectMetodoPago" 
+              onchange="aplicarFiltros()" 
+              class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+            >
+              <option value="">Todos los métodos de pago</option>
+              <option value="Efectivo">Efectivo</option>
+              <option value="Yape">Yape</option>
+              <option value="Plin">Plin</option>
+              <option value="Tarjeta">Tarjeta</option>
+              <option value="Transferencia">Transferencia</option>
+            </select>
+          </div>
+
+          <!-- Filtro Estado -->
+          <div>
+            <select 
+              id="selectEstado" 
+              onchange="aplicarFiltros()" 
+              class="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition"
+            >
+              <option value="COMPLETADA">Solo Ventas Activas</option>
+              <option value="">Todas (incluye Anuladas)</option>
+              <option value="ANULADA">Solo Anuladas</option>
+            </select>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Tabla Principal -->
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse" id="tablaVentas">
+          <thead>
+            <tr class="border-b border-slate-200 text-xs font-semibold text-slate-500 uppercase tracking-wider bg-slate-50/70">
+              <th class="py-3 px-4"># Venta</th>
+              <th class="py-3 px-4">Fecha y Hora</th>
+              <th class="py-3 px-4">Boletos</th>
+              <th class="py-3 px-4">Titular / Asistentes</th>
+              <th class="py-3 px-4 text-center">Cant.</th>
+              <th class="py-3 px-4 text-right">Total (S/)</th>
+              <th class="py-3 px-4 text-center">Pago</th>
+              <th class="py-3 px-4 text-right">Paga con / Vuelto</th>
+              <th class="py-3 px-4">Colaborador</th>
+              <th class="py-3 px-4 text-center no-print">Comprobante</th>
+              <th class="py-3 px-4 text-center">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyVentas" class="divide-y divide-slate-100 text-sm">
+            <tr>
+              <td colspan="11" class="py-12 text-center text-slate-400">
+                <i data-lucide="loader" class="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500"></i>
+                Cargando ventas en vivo...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Modal para Visualizar Comprobante de Pago en Grande -->
+  <div id="modalComprobante" class="fixed inset-0 bg-slate-900/70 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-150">
+      <div class="flex items-center justify-between p-4 border-b border-slate-100">
+        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
+          <i data-lucide="image" class="w-4 h-4 text-blue-600"></i>
+          Comprobante de Pago
+        </h3>
+        <button onclick="cerrarModalComprobante()" class="text-slate-400 hover:text-slate-600 p-1 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="p-4 bg-slate-100 flex items-center justify-center max-h-[70vh] overflow-auto">
+        <img id="imgModalComprobante" src="" alt="Comprobante" class="max-h-[65vh] object-contain rounded-lg shadow-sm">
+      </div>
+      <div class="p-3 bg-white border-t border-slate-100 flex justify-end gap-2">
+        <a id="btnAbrirComprobanteOriginal" href="#" target="_blank" class="px-3 py-1.5 text-xs font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition">
+          Abrir en pestaña nueva
+        </a>
+        <button onclick="cerrarModalComprobante()" class="px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition">
+          Cerrar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script Lógico y Conexión con Supabase -->
+  <script>
+    // 1. Configuración de Conexión a Supabase
+    const SUPABASE_URL = 'https://fqhspcbxtggckuurdbtc.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxaHNwY2J4dGdnY2t1dXJkYnRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NzY5ODUsImV4cCI6MjEwNzE1Mjk4NX0.9Nn8Zr47DbT6LwN13CjwHnEcSGu2CWvX0tAtxboKDMY';
+
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // Estado local
+    let eventoActual = null;
+    let todasLasVentas = [];
+    let ventasFiltradas = [];
+
+    // Inicialización al cargar la página
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      cargarTodo();
+
+      // Auto-refresco cada 45 segundos
+      setInterval(() => {
+        cargarTodo(false);
+      }, 45000);
+    });
+
+    // Cargar Evento y Ventas
+    async function cargarTodo(mostrarAnimacion = true) {
+      const btnRefresh = document.getElementById('iconRefresh');
+      if (mostrarAnimacion && btnRefresh) {
+        btnRefresh.classList.add('animate-spin');
+      }
+
+      try {
+        // A. Cargar Evento
+        const { data: evData, error: evError } = await supabaseClient
+          .from('eventos')
+          .select('*')
+          .eq('estado', 'ACTIVO')
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (evError) console.error('Error al cargar evento:', evError);
+        eventoActual = evData;
+
+        actualizarHeaderEvento();
+
+        // B. Cargar Ventas
+        let query = supabaseClient
+          .from('ventas_entradas')
+          .select('*')
+          .order('id', { ascending: false });
+
+        if (eventoActual) {
+          query = query.eq('evento_id', eventoActual.id);
+        }
+
+        const { data: ventasData, error: vError } = await query;
+        if (vError) throw vError;
+
+        todasLasVentas = ventasData || [];
+
+        // C. Procesar y Renderizar
+        poblarSelectorColaboradores();
+        aplicarFiltros();
+        actualizarUltimaHora();
+
+      } catch (err) {
+        console.error('Error general al cargar datos:', err);
+        alert('Error al conectar con la base de datos de Supabase. Revisa la consola.');
+      } finally {
+        if (btnRefresh) {
+          btnRefresh.classList.remove('animate-spin');
+        }
+      }
+    }
+
+    function actualizarHeaderEvento() {
+      const sub = document.getElementById('headerSub');
+      const printInfo = document.getElementById('printEventoInfo');
+      const printFecha = document.getElementById('printFecha');
+
+      const fechaHoy = new Date().toLocaleString('es-PE', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+      });
+      if (printFecha) printFecha.innerText = `Fecha de emisión: ${fechaHoy}`;
+
+      if (eventoActual) {
+        const lugarStr = eventoActual.lugar ? ` • Sede: ${eventoActual.lugar}` : '';
+        const precioStr = ` • Precio: S/ ${Number(eventoActual.precio_entrada).toFixed(2)}`;
+        if (sub) sub.innerText = `${eventoActual.nombre}${lugarStr}${precioStr}`;
+        if (printInfo) printInfo.innerText = `Evento: ${eventoActual.nombre}${lugarStr}`;
+      } else {
+        if (sub) sub.innerText = 'Sin evento activo seleccionado';
+      }
+    }
+
+    function actualizarUltimaHora() {
+      const horaStr = new Date().toLocaleTimeString('es-PE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+      const lbl = document.getElementById('lastUpdateText');
+      if (lbl) lbl.innerText = `Última sinc.: ${horaStr}`;
+    }
+
+    function poblarSelectorColaboradores() {
+      const select = document.getElementById('selectColaborador');
+      const valorSeleccionado = select.value;
+      const colaboradores = Array.from(new Set(todasLasVentas.map(v => v.colaborador_nombre).filter(Boolean))).sort();
+
+      select.innerHTML = '<option value="">Todos los colaboradores</option>';
+      colaboradores.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c;
+        opt.textContent = c;
+        if (c === valorSeleccionado) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function aplicarFiltros() {
+      const term = (document.getElementById('inputBusqueda').value || '').toLowerCase().trim();
+      const colab = document.getElementById('selectColaborador').value;
+      const metodo = document.getElementById('selectMetodoPago').value;
+      const estado = document.getElementById('selectEstado').value;
+
+      ventasFiltradas = todasLasVentas.filter(v => {
+        // Filtro estado
+        if (estado && v.estado !== estado) return false;
+
+        // Filtro colaborador
+        if (colab && v.colaborador_nombre !== colab) return false;
+
+        // Filtro método de pago
+        if (metodo && v.metodo_pago !== metodo) return false;
+
+        // Buscador de texto (ticket, nombre, dni, notas, asistentes)
+        if (term) {
+          const matchTicket = v.numero_ticket_inicio.toString().includes(term) || v.numero_ticket_fin.toString().includes(term);
+          const matchTitular = (v.nombre_completo || '').toLowerCase().includes(term);
+          const matchDni = (v.dni || '').toLowerCase().includes(term);
+          const matchColab = (v.colaborador_nombre || '').toLowerCase().includes(term);
+          const matchAsistentes = v.asistentes && Array.isArray(v.asistentes) && v.asistentes.some(a => 
+            (a.nombre || '').toLowerCase().includes(term) || (a.dni || '').toLowerCase().includes(term)
+          );
+
+          if (!matchTicket && !matchTitular && !matchDni && !matchColab && !matchAsistentes) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      renderizarKPIs();
+      renderizarCuadreColaboradores();
+      renderizarTabla();
+      lucide.createIcons();
+    }
+
+    function renderizarKPIs() {
+      const activas = todasLasVentas.filter(v => v.estado === 'COMPLETADA');
+
+      const totalMonto = activas.reduce((acc, v) => acc + Number(v.monto_total || 0), 0);
+      const totalEntradas = activas.reduce((acc, v) => acc + Number(v.cantidad || 0), 0);
+
+      const totalEfectivo = activas
+        .filter(v => v.metodo_pago === 'Efectivo')
+        .reduce((acc, v) => acc + Number(v.monto_total || 0), 0);
+
+      const totalYape = activas
+        .filter(v => v.metodo_pago === 'Yape')
+        .reduce((acc, v) => acc + Number(v.monto_total || 0), 0);
+
+      const totalPlin = activas
+        .filter(v => v.metodo_pago === 'Plin')
+        .reduce((acc, v) => acc + Number(v.monto_total || 0), 0);
+
+      const totalDigital = activas
+        .filter(v => v.metodo_pago !== 'Efectivo')
+        .reduce((acc, v) => acc + Number(v.monto_total || 0), 0);
+
+      const anuladas = todasLasVentas.filter(v => v.estado === 'ANULADA').length;
+
+      // Actualizar UI
+      document.getElementById('kpiTotalMonto').innerText = `S/ ${totalMonto.toFixed(2)}`;
+      document.getElementById('kpiTotalEntradas').innerText = totalEntradas;
+      document.getElementById('kpiTotalEfectivo').innerText = `S/ ${totalEfectivo.toFixed(2)}`;
+      document.getElementById('kpiTotalDigital').innerText = `S/ ${totalDigital.toFixed(2)}`;
+      document.getElementById('kpiDigitalSub').innerText = `Yape: S/ ${totalYape.toFixed(2)} | Plin: S/ ${totalPlin.toFixed(2)}`;
+      document.getElementById('kpiTotalTransacciones').innerText = activas.length;
+      document.getElementById('kpiAnuladasSub').innerText = `${anuladas} ${anuladas === 1 ? 'anulación' : 'anulaciones'} registradas`;
+
+      if (eventoActual && eventoActual.aforo_maximo) {
+        const pct = Math.min(100, (totalEntradas / eventoActual.aforo_maximo) * 100);
+        document.getElementById('kpiProgressBar').style.width = `${pct}%`;
+        const restantes = Math.max(0, eventoActual.aforo_maximo - totalEntradas);
+        document.getElementById('kpiAforoSub').innerText = `De ${eventoActual.aforo_maximo} aforo (quedan ${restantes})`;
+      } else {
+        document.getElementById('kpiProgressBar').style.width = '100%';
+        document.getElementById('kpiAforoSub').innerText = 'Aforo no limitado';
+      }
+    }
+
+    function renderizarCuadreColaboradores() {
+      const activas = todasLasVentas.filter(v => v.estado === 'COMPLETADA');
+      const agrupado = {};
+
+      activas.forEach(v => {
+        const c = v.colaborador_nombre || 'Colaborador';
+        if (!agrupado[c]) {
+          agrupado[c] = {
+            nombre: c,
+            entradas: 0,
+            efectivo: 0,
+            yape: 0,
+            plin: 0,
+            otros: 0,
+            total: 0
+          };
+        }
+
+        const monto = Number(v.monto_total || 0);
+        agrupado[c].entradas += Number(v.cantidad || 0);
+        agrupado[c].total += monto;
+
+        if (v.metodo_pago === 'Efectivo') {
+          agrupado[c].efectivo += monto;
+        } else if (v.metodo_pago === 'Yape') {
+          agrupado[c].yape += monto;
+        } else if (v.metodo_pago === 'Plin') {
+          agrupado[c].plin += monto;
+        } else {
+          agrupado[c].otros += monto;
+        }
+      });
+
+      const lista = Object.values(agrupado).sort((a, b) => b.total - a.total);
+      const tbody = document.getElementById('tbodyColaboradores');
+
+      if (lista.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="py-6 text-center text-slate-400">Sin ventas activas por colaboradores aún.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = lista.map(c => `
+        <tr class="hover:bg-slate-50/80 transition">
+          <td class="py-3 px-4 font-semibold text-slate-800 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            ${c.nombre}
+          </td>
+          <td class="py-3 px-4 text-center font-bold text-blue-600">${c.entradas}</td>
+          <td class="py-3 px-4 text-right font-bold text-emerald-600 bg-emerald-50/40">S/ ${c.efectivo.toFixed(2)}</td>
+          <td class="py-3 px-4 text-right text-purple-700">S/ ${c.yape.toFixed(2)}</td>
+          <td class="py-3 px-4 text-right text-sky-700">S/ ${c.plin.toFixed(2)}</td>
+          <td class="py-3 px-4 text-right text-slate-500">S/ ${c.otros.toFixed(2)}</td>
+          <td class="py-3 px-4 text-right font-bold text-slate-900">S/ ${c.total.toFixed(2)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderizarTabla() {
+      const tbody = document.getElementById('tbodyVentas');
+      document.getElementById('totalFiltradosText').innerText = `Mostrando ${ventasFiltradas.length} de ${todasLasVentas.length} registros`;
+
+      if (ventasFiltradas.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="11" class="py-12 text-center text-slate-400">
+              <i data-lucide="ticket-x" class="w-8 h-8 mx-auto mb-2 opacity-50"></i>
+              No se encontraron ventas con los filtros seleccionados.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      tbody.innerHTML = ventasFiltradas.map(v => {
+        const isAnulada = v.estado === 'ANULADA';
+        const d = new Date(v.fecha);
+        const fechaHora = d.toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit' }) + ' ' + 
+                          d.toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' });
+
+        // Tickets
+        const ticketsLabel = v.cantidad > 1 
+          ? `#${v.numero_ticket_inicio} al #${v.numero_ticket_fin}` 
+          : `#${v.numero_ticket_inicio}`;
+
+        // Badge Método de pago
+        let badgeColor = 'bg-slate-100 text-slate-700';
+        if (v.metodo_pago === 'Efectivo') badgeColor = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+        if (v.metodo_pago === 'Yape') badgeColor = 'bg-purple-100 text-purple-800 border border-purple-200';
+        if (v.metodo_pago === 'Plin') badgeColor = 'bg-sky-100 text-sky-800 border border-sky-200';
+
+        // Detalle de asistentes
+        let asistentesHtml = '';
+        if (v.asistentes && Array.isArray(v.asistentes) && v.asistentes.length > 0) {
+          asistentesHtml = `
+            <div class="mt-1 space-y-0.5 text-xs text-slate-500">
+              ${v.asistentes.map(a => `
+                <div>• Ticket #${a.ticket || ''}: <span class="font-medium text-slate-700">${a.nombre || 'Al portador'}</span> ${a.dni ? `(${a.dni})` : ''}</div>
+              `).join('')}
+            </div>
+          `;
+        }
+
+        // Paga con / Vuelto
+        let cashHtml = '<span class="text-slate-400">-</span>';
+        if (v.metodo_pago === 'Efectivo') {
+          const rec = v.monto_recibido ? `S/ ${Number(v.monto_recibido).toFixed(2)}` : `S/ ${Number(v.monto_total).toFixed(2)}`;
+          const vuel = Number(v.vuelto || 0) > 0 ? `<br><span class="text-xs text-emerald-600 font-semibold">Vuelto: S/ ${Number(v.vuelto).toFixed(2)}</span>` : '';
+          cashHtml = `<span class="text-xs text-slate-600">Paga: ${rec}</span>${vuel}`;
+        }
+
+        // Comprobante
+        let comprobanteBtn = '<span class="text-slate-300">-</span>';
+        if (v.url_comprobante) {
+          comprobanteBtn = `
+            <button onclick="verComprobante('${v.url_comprobante}')" class="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md transition">
+              <i data-lucide="image" class="w-3.5 h-3.5"></i>
+              Foto
+            </button>
+          `;
+        }
+
+        // Badge Estado
+        const estadoBadge = isAnulada 
+          ? `<span class="inline-block px-2 py-0.5 rounded text-xs font-bold bg-rose-100 text-rose-700 border border-rose-200" title="${v.motivo_anulacion || 'Anulada'}">ANULADA</span>`
+          : `<span class="inline-block px-2 py-0.5 rounded text-xs font-bold bg-emerald-100 text-emerald-700 border border-emerald-200">OK</span>`;
+
+        return `
+          <tr class="${isAnulada ? 'bg-rose-50/40 opacity-70' : 'hover:bg-slate-50/70'} transition">
+            <td class="py-3 px-4 font-mono text-xs text-slate-500">#${v.id}</td>
+            <td class="py-3 px-4 text-xs text-slate-600 whitespace-nowrap">${fechaHora}</td>
+            <td class="py-3 px-4 font-bold text-blue-600 whitespace-nowrap">
+              <span class="inline-block bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-md">${ticketsLabel}</span>
+            </td>
+            <td class="py-3 px-4">
+              <div class="font-semibold text-slate-800">${v.nombre_completo || 'Público General'}</div>
+              ${v.dni ? `<div class="text-xs text-slate-500">DNI: ${v.dni}</div>` : ''}
+              ${v.cantidad > 1 ? asistentesHtml : ''}
+            </td>
+            <td class="py-3 px-4 text-center font-bold text-slate-700">${v.cantidad}</td>
+            <td class="py-3 px-4 text-right font-bold text-slate-900 whitespace-nowrap">S/ ${Number(v.monto_total).toFixed(2)}</td>
+            <td class="py-3 px-4 text-center">
+              <span class="inline-block px-2 py-0.5 rounded-full text-xs font-semibold ${badgeColor}">
+                ${v.metodo_pago}
+              </span>
+            </td>
+            <td class="py-3 px-4 text-right whitespace-nowrap">${cashHtml}</td>
+            <td class="py-3 px-4 text-xs font-medium text-slate-700">${v.colaborador_nombre}</td>
+            <td class="py-3 px-4 text-center no-print">${comprobanteBtn}</td>
+            <td class="py-3 px-4 text-center">${estadoBadge}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Modal de Foto de Comprobante
+    function verComprobante(url) {
+      const modal = document.getElementById('modalComprobante');
+      const img = document.getElementById('imgModalComprobante');
+      const btn = document.getElementById('btnAbrirComprobanteOriginal');
+
+      img.src = url;
+      btn.href = url;
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function cerrarModalComprobante() {
+      const modal = document.getElementById('modalComprobante');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+
+    // Exportar a Excel (.xlsx) con SheetJS
+    function exportarExcel() {
+      if (todasLasVentas.length === 0) {
+        alert('No hay ventas registradas para exportar.');
+        return;
+      }
+
+      // 1. Datos de Detalle de Boletos
+      const dataVentas = todasLasVentas.map(v => {
+        let detalleAsistentesStr = '';
+        if (v.asistentes && Array.isArray(v.asistentes)) {
+          detalleAsistentesStr = v.asistentes.map(a => `${a.nombre || ''} (DNI: ${a.dni || ''})`).join('; ');
+        }
+
+        return {
+          'ID Venta': v.id,
+          'Fecha y Hora': new Date(v.fecha).toLocaleString('es-PE'),
+          'Ticket Inicio': v.numero_ticket_inicio,
+          'Ticket Fin': v.numero_ticket_fin,
+          'Rango Boletos': v.cantidad > 1 ? `#${v.numero_ticket_inicio} al #${v.numero_ticket_fin}` : `#${v.numero_ticket_inicio}`,
+          'Cantidad Entradas': v.cantidad,
+          'Titular': v.nombre_completo || 'Público General',
+          'DNI Titular': v.dni || '',
+          'Detalle Asistentes': detalleAsistentesStr,
+          'Monto Total (S/)': Number(v.monto_total || 0),
+          'Método de Pago': v.metodo_pago,
+          'Monto Recibido': v.monto_recibido ? Number(v.monto_recibido) : Number(v.monto_total),
+          'Vuelto': Number(v.vuelto || 0),
+          'Colaborador': v.colaborador_nombre,
+          'Estado': v.estado,
+          'Motivo Anulación': v.motivo_anulacion || '',
+          'URL Comprobante': v.url_comprobante || ''
+        };
+      });
+
+      // 2. Datos de Cuadre de Caja
+      const activas = todasLasVentas.filter(v => v.estado === 'COMPLETADA');
+      const agrupado = {};
+      activas.forEach(v => {
+        const c = v.colaborador_nombre || 'Colaborador';
+        if (!agrupado[c]) {
+          agrupado[c] = { Colaborador: c, Entradas: 0, 'Efectivo (S/)': 0, 'Yape (S/)': 0, 'Plin (S/)': 0, 'Otros (S/)': 0, 'Total Recaudado (S/)': 0 };
+        }
+        const m = Number(v.monto_total || 0);
+        agrupado[c].Entradas += Number(v.cantidad || 0);
+        agrupado[c]['Total Recaudado (S/)'] += m;
+        if (v.metodo_pago === 'Efectivo') agrupado[c]['Efectivo (S/)'] += m;
+        else if (v.metodo_pago === 'Yape') agrupado[c]['Yape (S/)'] += m;
+        else if (v.metodo_pago === 'Plin') agrupado[c]['Plin (S/)'] += m;
+        else agrupado[c]['Otros (S/)'] += m;
+      });
+
+      const dataCuadre = Object.values(agrupado);
+
+      // Crear Libro de Excel
+      const wb = XLSX.utils.book_new();
+
+      const wsVentas = XLSX.utils.json_to_sheet(dataVentas);
+      const wsCuadre = XLSX.utils.json_to_sheet(dataCuadre);
+
+      XLSX.utils.book_append_sheet(wb, wsCuadre, 'Cuadre por Colaborador');
+      XLSX.utils.book_append_sheet(wb, wsVentas, 'Detalle de Ventas');
+
+      // Nombre del archivo con fecha
+      const fechaHoy = new Date().toISOString().slice(0, 10);
+      const nombreArchivo = `Reporte_Ventas_Evento_${fechaHoy}.xlsx`;
+
+      XLSX.writeFile(wb, nombreArchivo);
+    }
+  </script>
+</body>
+</html>
