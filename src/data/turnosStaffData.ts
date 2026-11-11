@@ -404,10 +404,15 @@ export function detectarConflicto(turnoA: TurnoStaff, turnoB: TurnoStaff): Confl
   };
   const diasTexto = diasComunes.map((d) => nombresDiasMap[d] || d).join(', ');
 
+  const mismaSede = turnoA.sede === turnoB.sede;
+  const motivoTexto = mismaSede
+    ? `No puedes estar en ${turnoB.espacio} y ${turnoA.espacio} a la vez (${turnoB.horario}, ${diasTexto})`
+    : `Choca con ${turnoB.sede} [${turnoB.espacio}] (${turnoB.horario}, ${diasTexto})`;
+
   return {
     hasConflict: true,
     chocaConSede: turnoB.sede,
-    motivo: `Choca con ${turnoB.sede} (${turnoB.espacio} ${turnoB.horario}) los días: ${diasTexto}`,
+    motivo: motivoTexto,
   };
 }
 

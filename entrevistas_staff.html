@@ -1231,7 +1231,12 @@
           label.innerText = 'Horario Bloqueado';
           label.className = 'text-xs font-semibold text-rose-400/80';
 
-          clashMsg.innerHTML = `⚠️ Choca con <strong>${chocaCon.sede}</strong> (${chocaCon.inicio}-${chocaCon.fin}) los <strong>${diasChoque.join(', ')}</strong>`;
+          const mismaSede = target.sede === chocaCon.sede;
+          const textoDetalle = mismaSede
+            ? `⚠️ No puedes estar en <strong>${chocaCon.espacio}</strong> y <strong>${target.espacio}</strong> a la vez (${chocaCon.inicio}-${chocaCon.fin}, ${diasChoque.join(', ')})`
+            : `⚠️ Choca con <strong>${chocaCon.sede} [${chocaCon.espacio}]</strong> (${chocaCon.inicio}-${chocaCon.fin}, ${diasChoque.join(', ')})`;
+
+          clashMsg.innerHTML = textoDetalle;
           clashMsg.classList.remove('hidden');
         } else {
           // Turno libre y disponible

@@ -18,6 +18,8 @@ import {
   Star,
   Layers,
   Calendar,
+  UserCheck,
+  Edit3,
 } from 'lucide-react-native';
 import {
   TurnoStaff,
@@ -28,16 +30,21 @@ import {
   CandidatoStaff,
 } from '../../data/turnosStaffData';
 import { fetchTurnosStaff } from '../../lib/staffService';
+import { DatosFichaPostulante } from './FichaPostulanteInicial';
 import { fonts } from '../../theme';
 
 interface Props {
+  fichaActiva?: DatosFichaPostulante | null;
   onGuardarCandidato: (candidato: CandidatoStaff) => Promise<void>;
   onIrACandidatos: () => void;
+  onVolverAFicha?: () => void;
 }
 
 export default function AsignadorHorariosTab({
+  fichaActiva,
   onGuardarCandidato,
   onIrACandidatos,
+  onVolverAFicha,
 }: Props) {
   // Turnos en vivo desde Supabase (con respaldo local)
   const [turnosDisponibles, setTurnosDisponibles] = useState<TurnoStaff[]>(TURNOS_OFICIALES);
@@ -46,14 +53,25 @@ export default function AsignadorHorariosTab({
   const [sedeFiltro, setSedeFiltro] = useState<string>('Todas');
   const [selectedShiftIds, setSelectedShiftIds] = useState<string[]>([]);
 
-  // Formulario del Candidato
-  const [nombre, setNombre] = useState<string>('');
-  const [telefono, setTelefono] = useState<string>('');
-  const [distrito, setDistrito] = useState<string>('');
-  const [edad, setEdad] = useState<string>('');
-  const [calificacion, setCalificacion] = useState<number>(5);
-  const [notas, setNotas] = useState<string>('');
+  // Formulario del Candidato (Sincronizado con Ficha Inicial)
+  const [nombre, setNombre] = useState<string>(fichaActiva?.nombre || '');
+  const [telefono, setTelefono] = useState<string>(fichaActiva?.telefono || '');
+  const [distrito, setDistrito] = useState<string>(fichaActiva?.distrito || '');
+  const [edad, setEdad] = useState<string>(fichaActiva?.edad || '');
+  const [calificacion, setCalificacion] = useState<number>(fichaActiva?.calificacion || 5);
+  const [notas, setNotas] = useState<string>(fichaActiva?.notas || '');
   const [guardando, setGuardando] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (fichaActiva) {
+      setNombre(fichaActiva.nombre || '');
+      setTelefono(fichaActiva.telefono || '');
+      setDistrito(fichaActiva.distrito || '');
+      setEdad(fichaActiva.edad || '');
+      if (fichaActiva.calificacion) setCalificacion(fichaActiva.calificacion);
+      if (fichaActiva.notas) setNotas(fichaActiva.notas);
+    }
+  }, [fichaActiva]);
 
   useEffect(() => {
     (async () => {
@@ -212,6 +230,31 @@ export default function AsignadorHorariosTab({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Banner de Postulante Activo de la Ficha Inicial */}
+        {fichaActiva && (
+          <View style={styles.postulanteActivoBanner}>
+            <View style={styles.postulanteActivoInfo}>
+              <View style={styles.postulanteActivoRow}>
+                <UserCheck size={18} color="#f59e0b" />
+                <Text style={styles.postulanteActivoNombre}>{fichaActiva.nombre}</Text>
+              </View>
+              <Text style={styles.postulanteActivoSub}>
+                📱 {fichaActiva.telefono || 'Sin telf'} • 📍 {fichaActiva.distrito || 'Sin distrito'} • 🎂 {fichaActiva.edad || '17+'} años
+              </Text>
+            </View>
+            {onVolverAFicha && (
+              <TouchableOpacity
+                style={styles.postulanteActivoEditBtn}
+                onPress={onVolverAFicha}
+                activeOpacity={0.7}
+              >
+                <Edit3 size={14} color="#f59e0b" />
+                <Text style={styles.postulanteActivoEditText}>Editar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* 2. Selector de Filtro por Sede */}
         <View style={styles.filterSection}>
           <Text style={styles.filterTitle}>Filtrar por Sede ({SEDES_LISTA.length - 1} sedes):</Text>
@@ -798,6 +841,53 @@ const styles = StyleSheet.create({
   btnGuardarText: {
     color: '#0d1b2a',
     fontSize: 15,
+    fontFamily: fonts.bold,
+  },
+  postulanteActivoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  postulanteActivoInfo: {
+    flex: 1,
+    marginRight: 10,
+  },
+  postulanteActivoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  postulanteActivoNombre: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontFamily: fonts.bold,
+  },
+  postulanteActivoSub: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontFamily: fonts.regular,
+  },
+  postulanteActivoEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#f59e0b',
+  },
+  postulanteActivoEditText: {
+    color: '#f59e0b',
+    fontSize: 11,
     fontFamily: fonts.bold,
   },
 });

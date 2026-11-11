@@ -13,10 +13,13 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ArrowLeft,
+  FileText,
   Presentation,
   Clock,
   Users,
   Settings,
+  Lock,
+  CheckCircle,
 } from 'lucide-react-native';
 import { CandidatoStaff } from '../data/turnosStaffData';
 import {
@@ -24,6 +27,7 @@ import {
   guardarCandidatoStaff,
   eliminarCandidatoStaff,
 } from '../lib/staffService';
+import FichaPostulanteInicial, { DatosFichaPostulante } from '../components/entrevistas/FichaPostulanteInicial';
 import PresentacionSlideDeck from '../components/entrevistas/PresentacionSlideDeck';
 import AsignadorHorariosTab from '../components/entrevistas/AsignadorHorariosTab';
 import CandidatosListaTab from '../components/entrevistas/CandidatosListaTab';
@@ -31,11 +35,26 @@ import ModalAjustes from '../components/ModalAjustes';
 import { useAppTheme } from '../context/ThemeContext';
 import { fonts } from '../theme';
 
+type TabEntrevistas = 'FICHA' | 'PRESENTACION' | 'HORARIOS' | 'CANDIDATOS';
+
+const FICHA_VACIA: DatosFichaPostulante = {
+  nombre: '',
+  telefono: '',
+  distrito: '',
+  edad: '',
+  notas: '',
+  calificacion: 5,
+};
+
 export default function EntrevistasScreen() {
   const { theme, isDark } = useAppTheme();
   const [modalAjustesVisible, setModalAjustesVisible] = useState(false);
-  const [activeTab, setActiveTab] = useState<'PRESENTACION' | 'HORARIOS' | 'CANDIDATOS'>('PRESENTACION');
+  const [activeTab, setActiveTab] = useState<TabEntrevistas>('FICHA');
   const [candidatos, setCandidatos] = useState<CandidatoStaff[]>([]);
+
+  // Ficha Inicial Obligatoria del Postulante
+  const [fichaActiva, setFichaActiva] = useState<DatosFichaPostulante>(FICHA_VACIA);
+  const [fichaCompletada, setFichaCompletada] = useState<boolean>(false);
 
   useEffect(() => {
     cargarCandidatos();
@@ -50,6 +69,30 @@ export default function EntrevistasScreen() {
     }
   };
 
+  const handleValidarFicha = (datos: DatosFichaPostulante) => {
+    setFichaActiva(datos);
+    setFichaCompletada(true);
+    setActiveTab('PRESENTACION');
+  };
+
+  const handleIntentarCambiarTab = (targetTab: TabEntrevistas) => {
+    if (targetTab === 'FICHA' || targetTab === 'CANDIDATOS') {
+      setActiveTab(targetTab);
+      return;
+    }
+
+    if (!fichaCompletada) {
+      Alert.alert(
+        'Ficha de Postulante Obligatoria',
+        'Antes de exponer el Pitch o asignar horarios, es obligatorio llenar y validar la Ficha de Postulante con los datos mínimos del candidato.',
+        [{ text: 'Entendido', onPress: () => setActiveTab('FICHA') }]
+      );
+      return;
+    }
+
+    setActiveTab(targetTab);
+  };
+
   const guardarCandidato = async (nuevoCandidato: CandidatoStaff) => {
     try {
       const uNombre = (await AsyncStorage.getItem('usuario_nombre')) || 'Entrevistador';
@@ -58,6 +101,10 @@ export default function EntrevistasScreen() {
         nuevoCandidato,
         ...prev.filter((c) => c.id !== nuevoCandidato.id),
       ]);
+
+      // Reiniciar ficha para el siguiente postulante
+      setFichaActiva(FICHA_VACIA);
+      setFichaCompletada(false);
     } catch (e) {
       console.error('Error al guardar candidato:', e);
       throw e;
@@ -87,106 +134,168 @@ export default function EntrevistasScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Barra Superior con Botón Atrás y Título */}
-        <View style={styles.headerBar}>
+        {/* Barra Superior */}
+        <View style={[styles.headerBar, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
           <TouchableOpacity
-            style={styles.backBtn}
+            style={[styles.backBtn, { backgroundColor: theme.surface }]}
             onPress={() => router.back()}
             activeOpacity={0.7}
           >
-            <ArrowLeft size={22} color="#ffffff" />
+            <ArrowLeft size={22} color={theme.text} />
           </TouchableOpacity>
 
           <View style={styles.headerTitleBox}>
-            <Text style={styles.headerTitle}>Entrevistas & Staff</Text>
+            <Text style={[styles.headerTitle, { color: theme.text }]}>Entrevistas & Staff</Text>
             <Text style={styles.headerSub}>Club Campeones Lima</Text>
           </View>
 
           <TouchableOpacity
-            style={styles.backBtn}
+            style={[styles.backBtn, { backgroundColor: theme.surface }]}
             onPress={() => setModalAjustesVisible(true)}
             activeOpacity={0.7}
           >
-            <Settings size={18} color="#ffffff" />
+            <Settings size={18} color={theme.text} />
           </TouchableOpacity>
         </View>
 
-        {/* Pestañas de Navegación Fijas Superiores */}
-        <View style={styles.tabsContainer}>
+        {/* Pestañas de Navegación Fijas Superiores (4 Pasos Obligatorios) */}
+        <View style={[styles.tabsContainer, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
+          {/* Paso 1: Ficha */}
           <TouchableOpacity
             style={[
               styles.tabBtn,
+              { backgroundColor: theme.surface },
+              activeTab === 'FICHA' && styles.tabBtnActive,
+            ]}
+            onPress={() => handleIntentarCambiarTab('FICHA')}
+            activeOpacity={0.8}
+          >
+            {fichaCompletada ? (
+              <CheckCircle size={14} color={activeTab === 'FICHA' ? '#0d1b2a' : '#10b981'} />
+            ) : (
+              <FileText
+                size={14}
+                color={activeTab === 'FICHA' ? '#0d1b2a' : theme.textMuted}
+              />
+            )}
+            <Text
+              style={[
+                styles.tabBtnText,
+                { color: theme.textMuted },
+                activeTab === 'FICHA' && styles.tabBtnTextActive,
+              ]}
+              numberOfLines={1}
+            >
+              1. Ficha
+            </Text>
+          </TouchableOpacity>
+
+          {/* Paso 2: Pitch */}
+          <TouchableOpacity
+            style={[
+              styles.tabBtn,
+              { backgroundColor: theme.surface },
               activeTab === 'PRESENTACION' && styles.tabBtnActive,
+              !fichaCompletada && styles.tabBtnDisabled,
             ]}
-            onPress={() => setActiveTab('PRESENTACION')}
+            onPress={() => handleIntentarCambiarTab('PRESENTACION')}
             activeOpacity={0.8}
           >
-            <Presentation
-              size={15}
-              color={activeTab === 'PRESENTACION' ? '#0d1b2a' : '#94a3b8'}
-            />
+            {!fichaCompletada ? (
+              <Lock size={12} color="#64748b" />
+            ) : (
+              <Presentation
+                size={14}
+                color={activeTab === 'PRESENTACION' ? '#0d1b2a' : theme.textMuted}
+              />
+            )}
             <Text
               style={[
                 styles.tabBtnText,
+                { color: theme.textMuted },
                 activeTab === 'PRESENTACION' && styles.tabBtnTextActive,
+                !fichaCompletada && { color: '#64748b' },
               ]}
+              numberOfLines={1}
             >
-              Pitch
+              2. Pitch
             </Text>
           </TouchableOpacity>
 
+          {/* Paso 3: Horarios */}
           <TouchableOpacity
             style={[
               styles.tabBtn,
+              { backgroundColor: theme.surface },
               activeTab === 'HORARIOS' && styles.tabBtnActive,
+              !fichaCompletada && styles.tabBtnDisabled,
             ]}
-            onPress={() => setActiveTab('HORARIOS')}
+            onPress={() => handleIntentarCambiarTab('HORARIOS')}
             activeOpacity={0.8}
           >
-            <Clock
-              size={15}
-              color={activeTab === 'HORARIOS' ? '#0d1b2a' : '#94a3b8'}
-            />
+            {!fichaCompletada ? (
+              <Lock size={12} color="#64748b" />
+            ) : (
+              <Clock
+                size={14}
+                color={activeTab === 'HORARIOS' ? '#0d1b2a' : theme.textMuted}
+              />
+            )}
             <Text
               style={[
                 styles.tabBtnText,
+                { color: theme.textMuted },
                 activeTab === 'HORARIOS' && styles.tabBtnTextActive,
+                !fichaCompletada && { color: '#64748b' },
               ]}
+              numberOfLines={1}
             >
-              Horarios
+              3. Horarios
             </Text>
           </TouchableOpacity>
 
+          {/* Paso 4: Postulantes */}
           <TouchableOpacity
             style={[
               styles.tabBtn,
+              { backgroundColor: theme.surface },
               activeTab === 'CANDIDATOS' && styles.tabBtnActive,
             ]}
-            onPress={() => setActiveTab('CANDIDATOS')}
+            onPress={() => handleIntentarCambiarTab('CANDIDATOS')}
             activeOpacity={0.8}
           >
             <Users
-              size={15}
-              color={activeTab === 'CANDIDATOS' ? '#0d1b2a' : '#94a3b8'}
+              size={14}
+              color={activeTab === 'CANDIDATOS' ? '#0d1b2a' : theme.textMuted}
             />
             <Text
               style={[
                 styles.tabBtnText,
+                { color: theme.textMuted },
                 activeTab === 'CANDIDATOS' && styles.tabBtnTextActive,
               ]}
+              numberOfLines={1}
             >
-              Postulantes ({candidatos.length})
+              Staff ({candidatos.length})
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Contenido según la Pestaña Activa */}
-        <View style={styles.tabContentArea}>
+        <View style={[styles.tabContentArea, { backgroundColor: theme.background }]}>
+          {activeTab === 'FICHA' && (
+            <FichaPostulanteInicial
+              datosIniciales={fichaActiva}
+              onContinuarAlPitch={handleValidarFicha}
+              enEdicion={fichaCompletada}
+            />
+          )}
+
           {activeTab === 'PRESENTACION' && (
             <PresentacionSlideDeck
               onIrAHorarios={() => setActiveTab('HORARIOS')}
@@ -195,8 +304,10 @@ export default function EntrevistasScreen() {
 
           {activeTab === 'HORARIOS' && (
             <AsignadorHorariosTab
+              fichaActiva={fichaActiva}
               onGuardarCandidato={guardarCandidato}
               onIrACandidatos={() => setActiveTab('CANDIDATOS')}
+              onVolverAFicha={() => setActiveTab('FICHA')}
             />
           )}
 
@@ -205,7 +316,13 @@ export default function EntrevistasScreen() {
               candidatos={candidatos}
               onEliminarCandidato={eliminarCandidato}
               onLimpiarTodos={limpiarTodos}
-              onIrAHorarios={() => setActiveTab('HORARIOS')}
+              onIrAHorarios={() => {
+                if (fichaCompletada) {
+                  setActiveTab('HORARIOS');
+                } else {
+                  setActiveTab('FICHA');
+                }
+              }}
             />
           )}
         </View>
@@ -256,15 +373,12 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: fonts.medium,
   },
-  placeholderRight: {
-    width: 38,
-  },
   tabsContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 8,
     backgroundColor: '#0d1b2a',
-    gap: 8,
+    gap: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#1b263b',
   },
@@ -273,17 +387,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 4,
     paddingVertical: 8,
-    borderRadius: 10,
+    paddingHorizontal: 4,
+    borderRadius: 8,
     backgroundColor: '#1b263b',
   },
   tabBtnActive: {
     backgroundColor: '#f59e0b',
   },
+  tabBtnDisabled: {
+    opacity: 0.6,
+  },
   tabBtnText: {
     color: '#94a3b8',
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: fonts.medium,
   },
   tabBtnTextActive: {

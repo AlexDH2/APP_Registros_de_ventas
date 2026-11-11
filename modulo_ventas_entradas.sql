@@ -3,6 +3,7 @@
 -- ==============================================================================
 -- Compatible con Supabase PostgreSQL 17.
 -- Bloqueo exclusivo de fila 'FOR UPDATE' que garantiza CERO colisiones o duplicados.
+-- Incluye SECURITY DEFINER y permisos de secuencias para evitar errores de permisos.
 -- ==============================================================================
 
 -- 1. TABLA DE EVENTOS (PRECIO ÚNICO POR ENTRADA Y CONTROL DE CORRELATIVOS)
@@ -28,7 +29,7 @@ INSERT INTO public.eventos (nombre, lugar, precio_entrada, aforo_maximo, estado)
 SELECT 'Gran Evento Deportivo 2026', 'Sede Principal', 10.00, 1000, 'ACTIVO'
 WHERE NOT EXISTS (SELECT 1 FROM public.eventos WHERE estado = 'ACTIVO');
 
--- 2. TABLA DE VENTAS DE ENTRADAS (CON NOMBRE, DNI Y COMPROBANTE)
+-- 2. TABLA DE VENTAS DE ENTRADAS (CON NOMBRE, DNI, ASISTENTES Y COMPROBANTE)
 CREATE TABLE IF NOT EXISTS public.ventas_entradas (
   id SERIAL PRIMARY KEY,
   evento_id INTEGER REFERENCES public.eventos(id) ON DELETE CASCADE,
@@ -42,6 +43,7 @@ CREATE TABLE IF NOT EXISTS public.ventas_entradas (
   vuelto NUMERIC(10, 2) DEFAULT 0.00,
   nombre_completo TEXT,
   dni TEXT,
+  asistentes JSONB DEFAULT '[]'::jsonb,
   url_comprobante TEXT,
   colaborador_id INTEGER REFERENCES public.usuarios(id) ON DELETE SET NULL,
   colaborador_nombre TEXT NOT NULL DEFAULT 'Colaborador',
@@ -51,13 +53,16 @@ CREATE TABLE IF NOT EXISTS public.ventas_entradas (
   fecha TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Asegurar columna asistentes si ya existía la tabla
+ALTER TABLE public.ventas_entradas ADD COLUMN IF NOT EXISTS asistentes JSONB DEFAULT '[]'::jsonb;
+
 -- Índices de alto rendimiento
 CREATE INDEX IF NOT EXISTS idx_ventas_entradas_evento ON public.ventas_entradas(evento_id);
 CREATE INDEX IF NOT EXISTS idx_ventas_entradas_colaborador ON public.ventas_entradas(colaborador_nombre);
 CREATE INDEX IF NOT EXISTS idx_ventas_entradas_dni ON public.ventas_entradas(dni);
 CREATE INDEX IF NOT EXISTS idx_ventas_entradas_fecha ON public.ventas_entradas(fecha DESC);
 
--- 3. FUNCIÓN ATÓMICA DE EMISIÓN DE ENTRADAS (100% THREAD-SAFE CON BLOQUEO FOR UPDATE)
+-- 3. FUNCIÓN ATÓMICA DE EMISIÓN DE ENTRADAS (100% THREAD-SAFE CON BLOQUEO FOR UPDATE Y SECURITY DEFINER)
 CREATE OR REPLACE FUNCTION public.emitir_entradas_atomica(
   p_evento_id INT,
   p_cantidad INT,
@@ -71,9 +76,14 @@ CREATE OR REPLACE FUNCTION public.emitir_entradas_atomica(
   p_url_comprobante TEXT,
   p_colaborador_id INT,
   p_colaborador_nombre TEXT,
-  p_notas TEXT
+  p_notas TEXT,
+  p_asistentes JSONB DEFAULT '[]'::jsonb
 )
-RETURNS JSONB AS $$
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE
   v_ultimo_ticket INT;
   v_ticket_inicio INT;
@@ -119,7 +129,7 @@ BEGIN
   SET ultimo_ticket_emitido = v_ticket_fin 
   WHERE id = p_evento_id;
 
-  -- Insertar venta
+  -- Insertar venta con asistentes
   INSERT INTO public.ventas_entradas (
     evento_id,
     numero_ticket_inicio,
@@ -132,6 +142,7 @@ BEGIN
     vuelto,
     nombre_completo,
     dni,
+    asistentes,
     url_comprobante,
     colaborador_id,
     colaborador_nombre,
@@ -150,6 +161,7 @@ BEGIN
     p_vuelto,
     p_nombre_completo,
     p_dni,
+    p_asistentes,
     p_url_comprobante,
     p_colaborador_id,
     p_colaborador_nombre,
@@ -174,14 +186,12 @@ BEGIN
 
   RETURN v_resultado;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Otorgar permisos de ejecución
-GRANT EXECUTE ON FUNCTION public.emitir_entradas_atomica(
-  INT, INT, NUMERIC, NUMERIC, TEXT, NUMERIC, NUMERIC, TEXT, TEXT, TEXT, INT, TEXT, TEXT
-) TO anon, authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.emitir_entradas_atomica TO anon, authenticated, service_role;
 
--- 4. POLÍTICAS RLS (ACCESO SEGURO)
+-- 4. POLÍTICAS RLS Y PERMISOS DE TABLAS Y SECUENCIAS
 ALTER TABLE public.eventos ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ventas_entradas ENABLE ROW LEVEL SECURITY;
 
@@ -193,3 +203,8 @@ CREATE POLICY "permitir_todo_ventas_entradas" ON public.ventas_entradas FOR ALL 
 
 GRANT ALL ON TABLE public.eventos TO anon, authenticated, service_role;
 GRANT ALL ON TABLE public.ventas_entradas TO anon, authenticated, service_role;
+
+-- Concesión vital de permisos a las secuencias para que los roles anónimo y autenticado
+-- puedan autoincrementar IDs sin error de "permission denied for sequence"
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO anon, authenticated, service_role;
