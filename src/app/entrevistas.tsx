@@ -19,14 +19,17 @@ import {
   Settings,
 } from 'lucide-react-native';
 import { CandidatoStaff } from '../data/turnosStaffData';
+import {
+  fetchCandidatosStaff,
+  guardarCandidatoStaff,
+  eliminarCandidatoStaff,
+} from '../lib/staffService';
 import PresentacionSlideDeck from '../components/entrevistas/PresentacionSlideDeck';
 import AsignadorHorariosTab from '../components/entrevistas/AsignadorHorariosTab';
 import CandidatosListaTab from '../components/entrevistas/CandidatosListaTab';
 import ModalAjustes from '../components/ModalAjustes';
 import { useAppTheme } from '../context/ThemeContext';
 import { fonts } from '../theme';
-
-const STORAGE_KEY_CANDIDATOS = '@campeones_candidatos_staff';
 
 export default function EntrevistasScreen() {
   const { theme, isDark } = useAppTheme();
@@ -40,10 +43,8 @@ export default function EntrevistasScreen() {
 
   const cargarCandidatos = async () => {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY_CANDIDATOS);
-      if (data) {
-        setCandidatos(JSON.parse(data));
-      }
+      const data = await fetchCandidatosStaff();
+      setCandidatos(data);
     } catch (e) {
       console.error('Error al cargar candidatos:', e);
     }
@@ -51,9 +52,12 @@ export default function EntrevistasScreen() {
 
   const guardarCandidato = async (nuevoCandidato: CandidatoStaff) => {
     try {
-      const actualizados = [nuevoCandidato, ...candidatos];
-      setCandidatos(actualizados);
-      await AsyncStorage.setItem(STORAGE_KEY_CANDIDATOS, JSON.stringify(actualizados));
+      const uNombre = (await AsyncStorage.getItem('usuario_nombre')) || 'Entrevistador';
+      await guardarCandidatoStaff(nuevoCandidato, uNombre);
+      setCandidatos((prev) => [
+        nuevoCandidato,
+        ...prev.filter((c) => c.id !== nuevoCandidato.id),
+      ]);
     } catch (e) {
       console.error('Error al guardar candidato:', e);
       throw e;
@@ -62,9 +66,8 @@ export default function EntrevistasScreen() {
 
   const eliminarCandidato = async (id: string) => {
     try {
-      const actualizados = candidatos.filter((c) => c.id !== id);
-      setCandidatos(actualizados);
-      await AsyncStorage.setItem(STORAGE_KEY_CANDIDATOS, JSON.stringify(actualizados));
+      await eliminarCandidatoStaff(id);
+      setCandidatos((prev) => prev.filter((c) => c.id !== id));
     } catch (e) {
       console.error('Error al eliminar candidato:', e);
       Alert.alert('Error', 'No se pudo eliminar el postulante.');
@@ -73,8 +76,10 @@ export default function EntrevistasScreen() {
 
   const limpiarTodos = async () => {
     try {
+      for (const c of candidatos) {
+        await eliminarCandidatoStaff(c.id);
+      }
       setCandidatos([]);
-      await AsyncStorage.removeItem(STORAGE_KEY_CANDIDATOS);
     } catch (e) {
       console.error('Error al limpiar candidatos:', e);
       Alert.alert('Error', 'No se pudieron limpiar los postulantes.');

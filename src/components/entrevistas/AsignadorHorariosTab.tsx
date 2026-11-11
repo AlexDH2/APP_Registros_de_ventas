@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,7 @@ import {
   calcularTotales,
   CandidatoStaff,
 } from '../../data/turnosStaffData';
+import { fetchTurnosStaff } from '../../lib/staffService';
 import { fonts } from '../../theme';
 
 interface Props {
@@ -38,6 +39,9 @@ export default function AsignadorHorariosTab({
   onGuardarCandidato,
   onIrACandidatos,
 }: Props) {
+  // Turnos en vivo desde Supabase (con respaldo local)
+  const [turnosDisponibles, setTurnosDisponibles] = useState<TurnoStaff[]>(TURNOS_OFICIALES);
+
   // Filtros y Selección
   const [sedeFiltro, setSedeFiltro] = useState<string>('Todas');
   const [selectedShiftIds, setSelectedShiftIds] = useState<string[]>([]);
@@ -51,8 +55,21 @@ export default function AsignadorHorariosTab({
   const [notas, setNotas] = useState<string>('');
   const [guardando, setGuardando] = useState<boolean>(false);
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const turnosBD = await fetchTurnosStaff();
+        if (turnosBD && turnosBD.length > 0) {
+          setTurnosDisponibles(turnosBD);
+        }
+      } catch (e) {
+        console.warn('Error al obtener turnos en vivo de Supabase:', e);
+      }
+    })();
+  }, []);
+
   // Turnos seleccionados como objetos completos
-  const turnosSeleccionados = TURNOS_OFICIALES.filter((t) =>
+  const turnosSeleccionados = turnosDisponibles.filter((t) =>
     selectedShiftIds.includes(t.id)
   );
 
@@ -61,8 +78,8 @@ export default function AsignadorHorariosTab({
   // Filtrar turnos según sede seleccionada
   const turnosFiltrados =
     sedeFiltro === 'Todas'
-      ? TURNOS_OFICIALES
-      : TURNOS_OFICIALES.filter((t) => t.sede === sedeFiltro);
+      ? turnosDisponibles
+      : turnosDisponibles.filter((t) => t.sede === sedeFiltro);
 
   // Manejar click en turno
   const handleToggleTurno = (turno: TurnoStaff) => {
