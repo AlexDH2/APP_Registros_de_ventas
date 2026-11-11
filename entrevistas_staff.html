@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entrevistas & Selección de Staff Deportivo | Club Campeones Lima</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Google Fonts: Poppins & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Poppins', 'Inter', 'sans-serif'],
+          },
+          colors: {
+            navy: {
+              950: '#070f18',
+              900: '#0d1b2a',
+              850: '#132238',
+              800: '#1b263b',
+              700: '#273852',
+              600: '#415a77',
+              500: '#778da9',
+            },
+            gold: {
+              400: '#fbbf24',
+              500: '#f59e0b',
+              600: '#d97706',
+              700: '#b45309',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Estilos base y transiciones suaves */
+    body {
+      background-color: #0d1b2a;
+      color: #e0e1dd;
+      font-family: 'Poppins', sans-serif;
+      overflow-x: hidden;
+    }
+
+    /* Keynote slide display */
+    .slide-enter {
+      animation: fadeInSlide 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes fadeInSlide {
+      from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.99);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* Tarjetas de turno: estados visuales */
+    .shift-card {
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .shift-card.selected {
+      background-color: rgba(245, 158, 11, 0.12) !important;
+      border-color: #f59e0b !important;
+      box-shadow: 0 0 15px rgba(245, 158, 11, 0.25);
+    }
+    .shift-card.clashed {
+      background-color: rgba(239, 68, 68, 0.06) !important;
+      border-color: rgba(239, 68, 68, 0.35) !important;
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .shift-card.clashed:hover {
+      transform: none !important;
+    }
+
+    /* Scrollbar estilizado en modo oscuro */
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0d1b2a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #273852;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #415a77;
+    }
+
+    /* Toast emergente */
+    #toastMessage {
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  </style>
+</head>
+<body class="bg-navy-900 min-h-screen flex flex-col selection:bg-gold-500 selection:text-navy-900">
+
+  <!-- ==========================================
+       BARRA SUPERIOR FIJA DE CONTROL & PESTAÑAS
+       ========================================== -->
+  <header class="bg-navy-950/95 backdrop-blur-md border-b border-navy-700/60 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Logo y Título -->
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="cambiarModulo('presentacion')">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center text-navy-950 shadow-lg shadow-gold-500/20 font-bold">
+          <i data-lucide="shield" class="w-6 h-6 stroke-[2.5]"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-sm font-bold text-white tracking-wide">CAMPEONES LIMA</h1>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-gold-500/20 text-gold-400 border border-gold-500/30">
+              STAFF 2026
+            </span>
+          </div>
+          <p class="text-[11px] text-navy-500 hidden sm:block">Entrevistas & Asignador de Horarios</p>
+        </div>
+      </div>
+
+      <!-- Navegación entre los 3 Módulos -->
+      <nav class="flex items-center space-x-1 sm:space-x-2 bg-navy-900/90 p-1 rounded-xl border border-navy-700/60">
+        <button id="navBtn-presentacion" onclick="cambiarModulo('presentacion')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-navy-800 border border-navy-600/50 shadow-sm transition">
+          <i data-lucide="presentation" class="w-4 h-4 text-gold-400"></i>
+          <span>Presentación</span>
+        </button>
+
+        <button id="navBtn-horarios" onclick="cambiarModulo('horarios')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-navy-500 hover:text-white transition">
+          <i data-lucide="calendar-clock" class="w-4 h-4 text-emerald-400"></i>
+          <span>Asignador</span>
+          <span id="badgeHorasNav" class="hidden sm:inline-block px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-500/20 text-emerald-300 font-bold">0h</span>
+        </button>
+
+        <button id="navBtn-candidatos" onclick="cambiarModulo('candidatos')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-navy-500 hover:text-white transition">
+          <i data-lucide="users" class="w-4 h-4 text-sky-400"></i>
+          <span>Candidatos</span>
+          <span id="badgeCandidatosCount" class="px-1.5 py-0.2 rounded-full text-[10px] bg-sky-500/20 text-sky-300 font-bold">0</span>
+        </button>
+      </nav>
+
+      <!-- Botones de Acción Rápida -->
+      <div class="flex items-center space-x-2">
+        <button onclick="togglePantallaCompleta()" title="Pantalla completa" class="p-2 rounded-xl text-navy-500 hover:text-white bg-navy-900 border border-navy-700/60 hover:border-gold-500/40 transition">
+          <i data-lucide="maximize" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Barra de Progreso Superior (para diapositivas) -->
+    <div id="slideProgressBarContainer" class="w-full bg-navy-950 h-1">
+      <div id="slideProgressBar" class="h-1 bg-gradient-to-r from-gold-500 to-amber-300 transition-all duration-300" style="width: 14.28%;"></div>
+    </div>
+  </header>
+
+
+  <!-- ==========================================
+       MÓDULO 1: PRESENTACIÓN INTERACTIVA (SLIDES)
+       ========================================== -->
+  <section id="modulo-presentacion" class="flex-1 flex flex-col justify-between max-w-6xl w-full mx-auto px-4 py-6 sm:py-8">
+    
+    <!-- Contenedor del Slide Activo -->
+    <div id="slideContentWrapper" class="flex-1 flex items-center justify-center min-h-[500px]">
+      
+      <!-- Slide 1: Portada -->
+      <div id="slide-0" class="slide-item slide-enter w-full max-w-4xl bg-navy-850/80 border border-navy-700 rounded-3xl p-8 sm:p-14 shadow-2xl backdrop-blur text-center relative overflow-hidden">
+        <div class="absolute -top-24 -right-24 w-72 h-72 bg-gold-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute -bottom-24 -left-24 w-72 h-72 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gold-500/10 border border-gold-500/30 text-gold-400 text-xs font-semibold mb-6">
+          <i data-lucide="sparkles" class="w-4 h-4"></i> CONVOCATORIA OFICIAL DE SELECCIÓN 2026
+        </div>
+
+        <h1 class="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+          PROGRAMA AUXILIAR DEPORTIVO
+        </h1>
+        <p class="text-xl sm:text-2xl font-semibold text-gold-400 mt-2">
+          Club - Academia Deportiva Campeones Lima
+        </p>
+
+        <p class="text-slate-300 max-w-2xl mx-auto mt-6 text-sm sm:text-base leading-relaxed">
+          Bienvenido(a) a la entrevista de selección de personal y voluntariado formativo. 
+          Buscamos personas apasionadas por el deporte, dinámicas y orientadas al servicio para transformar la experiencia deportiva formativa de cientos de niños y jóvenes.
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto mt-8 pt-8 border-t border-navy-700/80">
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-navy-900/60 border border-navy-700/50">
+            <div class="w-9 h-9 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold text-sm">7</div>
+            <div class="text-left">
+              <p class="text-xs font-bold text-white">Sedes Deportivas</p>
+              <p class="text-[11px] text-navy-500">Lima Metropolitana</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-navy-900/60 border border-navy-700/50">
+            <div class="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-sm">5</div>
+            <div class="text-left">
+              <p class="text-xs font-bold text-white">Funciones Clave</p>
+              <p class="text-[11px] text-navy-500">Operativas & Campo</p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3 p-3 rounded-xl bg-navy-900/60 border border-navy-700/50">
+            <div class="w-9 h-9 rounded-lg bg-gold-500/20 text-gold-400 flex items-center justify-center font-bold text-sm">🏆</div>
+            <div class="text-left">
+              <p class="text-xs font-bold text-white">Certificación</p>
+              <p class="text-[11px] text-navy-500">Horas & Descuentos</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8">
+          <button onclick="cambiarSlide(1)" class="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 hover:bg-gold-600 text-navy-950 font-bold shadow-lg shadow-gold-500/20 transition transform hover:-translate-y-0.5">
+            <span>Iniciar Presentación</span>
+            <i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Slide 2: Acerca del Programa -->
+      <div id="slide-1" class="slide-item slide-enter hidden w-full max-w-4xl bg-navy-850/80 border border-navy-700 rounded-3xl p-8 sm:p-12 shadow-2xl backdrop-blur">
+        <div class="flex items-center gap-2 text-gold-400 text-xs font-bold uppercase tracking-wider mb-2">
+          <i data-lucide="info" class="w-4 h-4"></i> Visión General
+        </div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white">Acerca del Programa Deportivo</h2>
+        <p class="text-slate-300 mt-2 text-sm sm:text-base">
+          El auxiliar deportivo es la columna vertebral de la organización en cada campo de juego y salón formativo.
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-8">
+          <div class="p-6 rounded-2xl bg-navy-900/80 border border-navy-700 hover:border-gold-500/40 transition">
+            <div class="w-12 h-12 rounded-xl bg-gold-500/10 text-gold-400 flex items-center justify-center mb-4">
+              <i data-lucide="trophy" class="w-6 h-6"></i>
+            </div>
+            <h3 class="font-bold text-white text-base mb-2">Torneos y Competencias</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Soporte de campo, control de mesas de arbitraje, premiaciones y protocolo en campeonatos oficiales de fútbol, básquet y disciplinas formativas.
+            </p>
+          </div>
+
+          <div class="p-6 rounded-2xl bg-navy-900/80 border border-navy-700 hover:border-blue-500/40 transition">
+            <div class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-4">
+              <i data-lucide="calendar" class="w-6 h-6"></i>
+            </div>
+            <h3 class="font-bold text-white text-base mb-2">Talleres & Clases Diarias</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Supervisión de alumnos, toma de asistencia, recepción de padres de familia y acompañamiento dinámico en entrenamientos.
+            </p>
+          </div>
+
+          <div class="p-6 rounded-2xl bg-navy-900/80 border border-navy-700 hover:border-emerald-500/40 transition">
+            <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-4">
+              <i data-lucide="trending-up" class="w-6 h-6"></i>
+            </div>
+            <h3 class="font-bold text-white text-base mb-2">Gestión y Liderazgo</h3>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Desarrollo de habilidades directivas, comunicación asertiva, resolución de imprevistos y línea de ascenso a coordinador de sede.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 3: Requisitos de Postulación -->
+      <div id="slide-2" class="slide-item slide-enter hidden w-full max-w-4xl bg-navy-850/80 border border-navy-700 rounded-3xl p-8 sm:p-12 shadow-2xl backdrop-blur">
+        <div class="flex items-center gap-2 text-gold-400 text-xs font-bold uppercase tracking-wider mb-2">
+          <i data-lucide="check-circle" class="w-4 h-4"></i> Perfil & Condiciones
+        </div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white">Requisitos de Postulación</h2>
+        <p class="text-slate-300 mt-2 text-sm sm:text-base">
+          Condiciones mínimas necesarias para formar parte de nuestro equipo de auxiliares deportivos.
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
+          <div class="flex items-start gap-4 p-5 rounded-2xl bg-navy-900/70 border border-navy-700">
+            <div class="w-10 h-10 rounded-xl bg-gold-500/20 text-gold-400 flex items-center justify-center shrink-0">
+              <i data-lucide="user-check" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h4 class="font-bold text-white text-sm">Edad Mínima</h4>
+              <p class="text-xs text-slate-300 mt-1">
+                Postulantes desde los 17 años de edad en adelante. En caso de ser menor de edad, se requiere autorización formal firmada por padre/tutor.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-4 p-5 rounded-2xl bg-navy-900/70 border border-navy-700">
+            <div class="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+              <i data-lucide="clock" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h4 class="font-bold text-white text-sm">Compromiso Horario</h4>
+              <p class="text-xs text-slate-300 mt-1">
+                Disponibilidad fija de al menos 1 o 2 turnos semanales de acuerdo a los cronogramas oficiales de cada sede elegida.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-4 p-5 rounded-2xl bg-navy-900/70 border border-navy-700">
+            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+              <i data-lucide="smile" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h4 class="font-bold text-white text-sm">Proactividad & Actitud</h4>
+              <p class="text-xs text-slate-300 mt-1">
+                Ganas de aprender, buen trato interpersonal con niños y familias, puntualidad y vocación de servicio deportivo.
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-start gap-4 p-5 rounded-2xl bg-navy-900/70 border border-navy-700">
+            <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+              <i data-lucide="file-text" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h4 class="font-bold text-white text-sm">Ficha de Inscripción</h4>
+              <p class="text-xs text-slate-300 mt-1">
+                Llenado completo de los datos personales, contacto de emergencia y aceptación del reglamento interno del club.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 4: Las 5 Funciones Clave -->
+      <div id="slide-3" class="slide-item slide-enter hidden w-full max-w-4xl bg-navy-850/80 border border-navy-700 rounded-3xl p-8 sm:p-12 shadow-2xl backdrop-blur">
+        <div class="flex items-center gap-2 text-gold-400 text-xs font-bold uppercase tracking-wider mb-2">
+          <i data-lucide="activity" class="w-4 h-4"></i> Responsabilidades Operativas
+        </div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white">Las 5 Funciones Clave del Auxiliar</h2>
+        <p class="text-slate-300 mt-1 text-sm">
+          Cada día en cancha te desempeñarás en una o varias de las siguientes misiones prioritarias:
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
+          
+          <!-- Función 1 -->
+          <div class="p-4 rounded-2xl bg-navy-900/90 border border-navy-700">
+            <div class="flex items-center justify-between mb-3">
+              <span class="w-7 h-7 rounded-lg bg-gold-500 text-navy-950 font-extrabold text-xs flex items-center justify-center">1</span>
+              <i data-lucide="megaphone" class="w-4 h-4 text-gold-400"></i>
+            </div>
+            <h4 class="font-bold text-white text-sm mb-1">Mercadotecnia & Stand</h4>
+            <p class="text-xs text-slate-300">
+              Instalación de banners institucionales, entrega de indumentaria a alumnos y módulo informativo para padres.
+            </p>
+          </div>
+
+          <!-- Función 2 -->
+          <div class="p-4 rounded-2xl bg-navy-900/90 border border-navy-700">
+            <div class="flex items-center justify-between mb-3">
+              <span class="w-7 h-7 rounded-lg bg-blue-500 text-white font-extrabold text-xs flex items-center justify-center">2</span>
+              <i data-lucide="package" class="w-4 h-4 text-blue-400"></i>
+            </div>
+            <h4 class="font-bold text-white text-sm mb-1">Logística & Utilería</h4>
+            <p class="text-xs text-slate-300">
+              Cuidado, conteo y entrega de balones, conos, vallas, chalecos y supervisión del estado del material deportivo.
+            </p>
+          </div>
+
+          <!-- Función 3 -->
+          <div class="p-4 rounded-2xl bg-navy-900/90 border border-navy-700">
+            <div class="flex items-center justify-between mb-3">
+              <span class="w-7 h-7 rounded-lg bg-purple-500 text-white font-extrabold text-xs flex items-center justify-center">3</span>
+              <i data-lucide="camera" class="w-4 h-4 text-purple-400"></i>
+            </div>
+            <h4 class="font-bold text-white text-sm mb-1">Registro & Cobertura</h4>
+            <p class="text-xs text-slate-300">
+              Toma fotográfica de las sesiones de entrenamiento, reportes breves de incidencias y registro digital en vivo.
+            </p>
+          </div>
+
+          <!-- Función 4 -->
+          <div class="p-4 rounded-2xl bg-navy-900/90 border border-navy-700">
+            <div class="flex items-center justify-between mb-3">
+              <span class="w-7 h-7 rounded-lg bg-emerald-500 text-navy-950 font-extrabold text-xs flex items-center justify-center">4</span>
+              <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+            </div>
+            <h4 class="font-bold text-white text-sm mb-1">Protocolo & Control</h4>
+            <p class="text-xs text-slate-300">
+              Control de acceso a sedes, verificación de asistencia y orientación cercana a padres de familia.
+            </p>
+          </div>
+
+          <!-- Función 5 -->
+          <div class="p-4 rounded-2xl bg-navy-900/90 border border-navy-700 sm:col-span-2 lg:col-span-2">
+            <div class="flex items-center justify-between mb-3">
+              <span class="w-7 h-7 rounded-lg bg-amber-500 text-navy-950 font-extrabold text-xs flex items-center justify-center">5</span>
+              <i data-lucide="user" class="w-4 h-4 text-amber-400"></i>
+            </div>
+            <h4 class="font-bold text-white text-sm mb-1">Asistencia Técnica al Entrenador</h4>
+            <p class="text-xs text-slate-300">
+              Apoyo directo en ejercicios de calentamiento, distribución de grupos, asistencia técnica y control del orden durante los partidos y prácticas.
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Slide 5: Beneficios Exclusivos -->
+      <div id="slide-4" class="slide-item slide-enter hidden w-full max-w-4xl bg-navy-850/80 border border-navy-700 rounded-3xl p-8 sm:p-12 shadow-2xl backdrop-blur">
+        <div class="flex items-center gap-2 text-gold-400 text-xs font-bold uppercase tracking-wider mb-2">
+          <i data-lucide="gift" class="w-4 h-4"></i> Reconocimiento & Crecimiento
+        </div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white">Beneficios para el Staff</h2>
+        <p class="text-slate-300 mt-1 text-sm">
+          Valoramos tu tiempo y pasión con oportunidades de desarrollo personal y deportivo:
+        </p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mt-6">
+          
+          <div class="p-4 rounded-xl bg-navy-900/80 border border-navy-700/80 flex items-start gap-3">
+            <i data-lucide="award" class="w-5 h-5 text-gold-400 shrink-0 mt-0.5"></i>
+            <div>
+              <p class="text-xs font-bold text-white">Certificado de Horas</p>
+              <p class="text-[11px] text-slate-400">Válido para voluntariado, prácticas pre-profesionales y CV.</p>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-navy-900/80 border border-navy-700/80 flex items-start gap-3">
+            <i data-lucide="shirt" class="w-5 h-5 text-blue-400 shrink-0 mt-0.5"></i>
+            <div>
+              <p class="text-xs font-bold text-white">Indumentaria STAFF</p>
+              <p class="text-[11px] text-slate-400">Polos y chalecos oficiales de Campeones Lima.</p>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-navy-900/80 border border-navy-700/80 flex items-start gap-3">
+            <i data-lucide="percent" class="w-5 h-5 text-emerald-400 shrink-0 mt-0.5"></i>
+            <div>
+              <p class="text-xs font-bold text-white">50% Descuento Familiar</p>
+              <p class="text-[11px] text-slate-400">Beneficio en mensualidades para hermanos o hijos directos.</p>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-navy-900/80 border border-navy-700/80 flex items-start gap-3">
+            <i data-lucide="compass" class="w-5 h-5 text-amber-400 shrink-0 mt-0.5"></i>
+            <div>
+              <p class="text-xs font-bold text-white">Talleres Deportivos Gratis</p>
+              <p class="text-[11px] text-slate-400">Participación gratuita en academias deportivas del club.</p>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-navy-900/80 border border-navy-700/80 flex items-start gap-3">
+            <i data-lucide="sun" class="w-5 h-5 text-orange-400 shrink-0 mt-0.5"></i>
+            <div>
+              <p class="text-xs font-bold text-white">Campamentos e Integración</p>
+              <p class="text-[11px] text-slate-400">Viajes a la playa, salidas y jornadas recreativas de integración.</p>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-navy-900/80 border border-navy-700/80 flex items-start gap-3">
+            <i data-lucide="tag" class="w-5 h-5 text-rose-400 shrink-0 mt-0.5"></i>
+            <div>
+              <p class="text-xs font-bold text-white">20% en Merchandising</p>
+              <p class="text-[11px] text-slate-400">Descuento especial en accesorios y ropa oficial de la marca.</p>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl bg-navy-900/80 border border-navy-700/80 flex items-start gap-3 sm:col-span-2 lg:col-span-3 bg-gradient-to-r from-gold-500/10 via-navy-900 to-blue-500/10 border-gold-500/30">
+            <i data-lucide="trending-up" class="w-6 h-6 text-gold-400 shrink-0"></i>
+            <div>
+              <p class="text-xs font-bold text-white">Línea de Carrera & Capacitaciones Trimestrales Certificadas</p>
+              <p class="text-[11px] text-slate-300">Posibilidad real de ascender a Coordinador de Sede o Director de Campo, con capacitaciones en primeros auxilios deportivos y gestión de eventos.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Slide 6: Sedes de Entrenamiento -->
+      <div id="slide-5" class="slide-item slide-enter hidden w-full max-w-4xl bg-navy-850/80 border border-navy-700 rounded-3xl p-8 sm:p-12 shadow-2xl backdrop-blur">
+        <div class="flex items-center gap-2 text-gold-400 text-xs font-bold uppercase tracking-wider mb-2">
+          <i data-lucide="map-pin" class="w-4 h-4"></i> Ubicaciones
+        </div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white">Nuestras 7 Sedes de Entrenamiento</h2>
+        <p class="text-slate-300 mt-1 text-sm">
+          Infraestructuras de primer nivel con turnos matutinos y vespertinos:
+        </p>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mt-6">
+          <div class="p-3.5 rounded-xl bg-navy-900/90 border border-navy-700 text-center">
+            <div class="w-8 h-8 rounded-lg bg-gold-500/20 text-gold-400 flex items-center justify-center mx-auto mb-2">
+              <i data-lucide="building" class="w-4 h-4"></i>
+            </div>
+            <p class="text-xs font-bold text-white">Cristo Rey</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Campo y Salón (Mañana y Tarde)</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-navy-900/90 border border-navy-700 text-center">
+            <div class="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center mx-auto mb-2">
+              <i data-lucide="building" class="w-4 h-4"></i>
+            </div>
+            <p class="text-xs font-bold text-white">Liceo Naval</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Campo y Tarima (Tarde)</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-navy-900/90 border border-navy-700 text-center">
+            <div class="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center mx-auto mb-2">
+              <i data-lucide="building" class="w-4 h-4"></i>
+            </div>
+            <p class="text-xs font-bold text-white">Santísima Trinidad</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Campo Tarde (MJ 18:00)</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-navy-900/90 border border-navy-700 text-center">
+            <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-2">
+              <i data-lucide="building" class="w-4 h-4"></i>
+            </div>
+            <p class="text-xs font-bold text-white">Elvira García</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Campo Tarde (LMV y MJ)</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-navy-900/90 border border-navy-700 text-center">
+            <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto mb-2">
+              <i data-lucide="building" class="w-4 h-4"></i>
+            </div>
+            <p class="text-xs font-bold text-white">Libertador</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Campo y Patio Tarde</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-navy-900/90 border border-navy-700 text-center">
+            <div class="w-8 h-8 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center mx-auto mb-2">
+              <i data-lucide="building" class="w-4 h-4"></i>
+            </div>
+            <p class="text-xs font-bold text-white">Buenas Nuevas</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Campo Tarde (LMV)</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-navy-900/90 border border-navy-700 text-center col-span-2 sm:col-span-1">
+            <div class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto mb-2">
+              <i data-lucide="building" class="w-4 h-4"></i>
+            </div>
+            <p class="text-xs font-bold text-white">Fátima</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Campo y Patio (LMV/MV)</p>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-gold-500/10 border border-gold-500/30 text-center flex flex-col justify-center items-center cursor-pointer hover:bg-gold-500/20 transition" onclick="cambiarModulo('horarios')">
+            <i data-lucide="calendar-plus" class="w-5 h-5 text-gold-400 mb-1"></i>
+            <p class="text-xs font-bold text-gold-400">Ver Cronograma</p>
+            <p class="text-[10px] text-slate-300">Ir al Asignador</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Slide 7: Criterios de Evaluación & Preguntas Guía -->
+      <div id="slide-6" class="slide-item slide-enter hidden w-full max-w-4xl bg-navy-850/80 border border-navy-700 rounded-3xl p-8 sm:p-12 shadow-2xl backdrop-blur">
+        <div class="flex items-center gap-2 text-gold-400 text-xs font-bold uppercase tracking-wider mb-2">
+          <i data-lucide="clipboard-check" class="w-4 h-4"></i> Fase de Entrevista
+        </div>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white">Criterios & Preguntas de Selección</h2>
+        <p class="text-slate-300 mt-1 text-sm">
+          Preguntas clave para el entrevistador durante la sesión:
+        </p>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+          <div class="p-5 rounded-2xl bg-navy-900/90 border border-navy-700 space-y-3">
+            <h4 class="font-bold text-gold-400 text-sm flex items-center gap-2">
+              <i data-lucide="message-square" class="w-4 h-4"></i> Preguntas Guía para el Candidato
+            </h4>
+            <ul class="space-y-2 text-xs text-slate-300">
+              <li class="flex items-start gap-2">
+                <span class="text-gold-400 font-bold">•</span>
+                <span>¿Qué te motivó a postular como auxiliar en Campeones Lima?</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-gold-400 font-bold">•</span>
+                <span>¿Tienes experiencia previa con niños o en eventos deportivos?</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-gold-400 font-bold">•</span>
+                <span>Si un padre de familia se muestra impaciente, ¿cómo reaccionarías?</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-gold-400 font-bold">•</span>
+                <span>¿Cuáles son tus días y turnos de mayor disponibilidad?</span>
+              </li>
+            </ul>
+          </div>
+
+          <div class="p-5 rounded-2xl bg-navy-900/90 border border-navy-700 space-y-3">
+            <h4 class="font-bold text-emerald-400 text-sm flex items-center gap-2">
+              <i data-lucide="check-square" class="w-4 h-4"></i> Criterios de Calificación
+            </h4>
+            <div class="space-y-2 text-xs text-slate-300">
+              <div class="flex justify-between items-center p-2 rounded-lg bg-navy-950/60">
+                <span>Comunicación, energía y empatía</span>
+                <span class="font-bold text-gold-400">Puntaje 1-5</span>
+              </div>
+              <div class="flex justify-between items-center p-2 rounded-lg bg-navy-950/60">
+                <span>Puntualidad y compromiso semanal</span>
+                <span class="font-bold text-gold-400">Puntaje 1-5</span>
+              </div>
+              <div class="flex justify-between items-center p-2 rounded-lg bg-navy-950/60">
+                <span>Cercanía geográfica a las sedes</span>
+                <span class="font-bold text-gold-400">Puntaje 1-5</span>
+              </div>
+              <div class="flex justify-between items-center p-2 rounded-lg bg-navy-950/60">
+                <span>Trabajo en equipo y proactividad</span>
+                <span class="font-bold text-gold-400">Puntaje 1-5</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-8 text-center">
+          <button onclick="cambiarModulo('horarios')" class="inline-flex items-center gap-2 px-8 py-3.5 rounded-xl bg-gradient-to-r from-gold-500 to-amber-500 hover:from-gold-600 hover:to-amber-600 text-navy-950 font-bold shadow-xl shadow-gold-500/20 transition transform hover:-translate-y-0.5">
+            <span>Pasar al Asignador de Horarios</span>
+            <i data-lucide="arrow-right" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Barra de Navegación Inferior de Slides -->
+    <div class="mt-6 flex items-center justify-between bg-navy-950/80 p-3 rounded-2xl border border-navy-700/60">
+      <div class="flex items-center gap-2">
+        <button id="btnPrevSlide" onclick="cambiarSlide(-1)" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-slate-300 bg-navy-800 hover:bg-navy-700 border border-navy-600/50 transition">
+          <i data-lucide="chevron-left" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Anterior</span>
+        </button>
+
+        <span class="text-xs text-slate-400 font-medium px-2">
+          Diapositiva <span id="currentSlideIndicator" class="text-gold-400 font-bold">1</span> de <span id="totalSlidesIndicator">7</span>
+        </span>
+
+        <button id="btnNextSlide" onclick="cambiarSlide(1)" class="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-navy-950 bg-gold-500 hover:bg-gold-400 transition shadow-md shadow-gold-500/10">
+          <span class="hidden sm:inline">Siguiente</span>
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Atajos de teclado en pantalla -->
+      <div class="text-[11px] text-navy-500 hidden md:flex items-center gap-3">
+        <span>Atajos: <kbd class="px-1.5 py-0.5 rounded bg-navy-800 border border-navy-700 text-slate-300">←</kbd> <kbd class="px-1.5 py-0.5 rounded bg-navy-800 border border-navy-700 text-slate-300">→</kbd> o <kbd class="px-1.5 py-0.5 rounded bg-navy-800 border border-navy-700 text-slate-300">Espacio</kbd></span>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ==============================================================
+       MÓDULO 2: ASIGNADOR DE HORARIOS CON MOTOR ANTI-CRUCES (CONSTRAINTS)
+       ============================================================== -->
+  <section id="modulo-horarios" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+    
+    <!-- Panel Resumen de Selección & Métricas del Candidato -->
+    <div class="bg-navy-850 border border-navy-700 rounded-2xl p-4 sm:p-5 mb-6 shadow-xl sticky top-20 z-40 backdrop-blur-md">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i data-lucide="calendar-check-2" class="w-5 h-5 text-gold-400"></i>
+            Asignador de Turnos en Vivo
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Selecciona los turnos de disponibilidad. El sistema bloqueará automáticamente cualquier choque de horario.
+          </p>
+        </div>
+
+        <!-- Contadores dinámicos -->
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="px-3.5 py-2 rounded-xl bg-navy-900 border border-navy-700 flex items-center gap-2">
+            <span class="text-xs text-slate-400">Turnos:</span>
+            <span id="counterTurnos" class="text-sm font-extrabold text-gold-400">0</span>
+          </div>
+
+          <div class="px-3.5 py-2 rounded-xl bg-navy-900 border border-navy-700 flex items-center gap-2">
+            <span class="text-xs text-slate-400">Horas Semanales:</span>
+            <span id="counterHoras" class="text-sm font-extrabold text-emerald-400">0.0 h</span>
+          </div>
+
+          <!-- Limpiar -->
+          <button onclick="limpiarSeleccionHorarios()" class="px-3 py-2 rounded-xl text-xs font-semibold text-rose-400 hover:text-rose-300 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 transition">
+            Limpiar
+          </button>
+
+          <!-- Guardar Candidato -->
+          <button onclick="abrirModalGuardar()" class="px-4 py-2 rounded-xl text-xs font-bold text-navy-950 bg-gradient-to-r from-gold-400 to-amber-500 hover:from-gold-500 hover:to-amber-600 shadow-md shadow-gold-500/20 transition flex items-center gap-1.5">
+            <i data-lucide="user-plus" class="w-4 h-4"></i>
+            <span>Registrar Candidato</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Lista de Sedes y Turnos -->
+    <div id="contenedorSedesTurnos" class="space-y-6">
+      <!-- Se inyecta dinámicamente con renderizarSedesYTurnos() -->
+    </div>
+  </section>
+
+
+  <!-- =======================================================
+       MÓDULO 3: GESTIÓN DE CANDIDATOS (REGISTRO & EXPORTACIÓN)
+       ======================================================= -->
+  <section id="modulo-candidatos" class="hidden flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+    
+    <div class="bg-navy-850 border border-navy-700 rounded-2xl p-5 mb-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <h2 class="text-xl font-bold text-white flex items-center gap-2">
+          <i data-lucide="users" class="w-5 h-5 text-sky-400"></i>
+          Postulantes & Voluntarios Registrados
+        </h2>
+        <p class="text-xs text-slate-400 mt-1">
+          Base de datos local de candidatos evaluados y horarios confirmados
+        </p>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button onclick="exportarCandidatosCSV()" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 transition shadow-sm">
+          <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+          <span>Exportar a Excel (CSV)</span>
+        </button>
+
+        <button onclick="cambiarModulo('horarios')" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-navy-950 bg-gold-400 hover:bg-gold-500 transition shadow-sm">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Nuevo Postulante</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Buscador de candidatos -->
+    <div class="mb-4">
+      <div class="relative max-w-md">
+        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-3 text-navy-500"></i>
+        <input 
+          type="text" 
+          id="inputBusquedaCandidato" 
+          oninput="filtrarCandidatosUI()"
+          placeholder="Buscar candidato por nombre, celular o distrito..." 
+          class="w-full pl-10 pr-4 py-2 bg-navy-850 border border-navy-700 rounded-xl text-xs text-white placeholder-navy-500 focus:outline-none focus:border-gold-500 transition"
+        >
+      </div>
+    </div>
+
+    <!-- Lista / Tarjetas de Candidatos -->
+    <div id="listaCandidatosContainer" class="space-y-4">
+      <!-- Se inyecta dinámicamente -->
+    </div>
+  </section>
+
+
+  <!-- ==============================================
+       MODAL DE REGISTRO DE CANDIDATO TRAS HORARIOS
+       ============================================== -->
+  <div id="modalRegistroCandidato" class="fixed inset-0 bg-navy-950/80 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-navy-850 border border-navy-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl animate-in fade-in zoom-in duration-200">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-navy-700/80 mb-5">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 rounded-lg bg-gold-500/20 text-gold-400 flex items-center justify-center">
+            <i data-lucide="user-check" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Guardar Ficha de Candidato</h3>
+            <p class="text-[11px] text-slate-400">Asocia los turnos seleccionados al perfil</p>
+          </div>
+        </div>
+        <button onclick="cerrarModalGuardar()" class="text-navy-500 hover:text-white p-1">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Resumen de horarios elegidos -->
+      <div class="mb-5 p-3 rounded-xl bg-navy-900 border border-navy-700/70 text-xs">
+        <div class="flex justify-between items-center text-slate-300">
+          <span>Turnos seleccionados: <strong id="modalResumenTurnos" class="text-gold-400">0</strong></span>
+          <span>Horas acumuladas: <strong id="modalResumenHoras" class="text-emerald-400">0 h/sem</strong></span>
+        </div>
+        <div id="modalListaTurnosText" class="mt-2 text-[11px] text-slate-400 line-clamp-2">
+          Ningún turno marcado aún.
+        </div>
+      </div>
+
+      <!-- Formulario -->
+      <form id="formCandidato" onsubmit="guardarCandidatoSubmit(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Nombre Completo *</label>
+          <input 
+            type="text" 
+            id="candNombre" 
+            required 
+            placeholder="Ej: Sofía Quispe Rojas" 
+            class="w-full px-3 py-2 bg-navy-900 border border-navy-700 rounded-xl text-xs text-white placeholder-navy-500 focus:outline-none focus:border-gold-500 transition"
+          >
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Celular / WhatsApp *</label>
+            <input 
+              type="tel" 
+              id="candTelefono" 
+              required 
+              placeholder="987 654 321" 
+              class="w-full px-3 py-2 bg-navy-900 border border-navy-700 rounded-xl text-xs text-white placeholder-navy-500 focus:outline-none focus:border-gold-500 transition"
+            >
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Distrito de Residencia</label>
+            <input 
+              type="text" 
+              id="candDistrito" 
+              placeholder="Ej: Breña, San Miguel..." 
+              class="w-full px-3 py-2 bg-navy-900 border border-navy-700 rounded-xl text-xs text-white placeholder-navy-500 focus:outline-none focus:border-gold-500 transition"
+            >
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Edad</label>
+            <input 
+              type="number" 
+              id="candEdad" 
+              min="16" 
+              max="60" 
+              placeholder="18" 
+              class="w-full px-3 py-2 bg-navy-900 border border-navy-700 rounded-xl text-xs text-white placeholder-navy-500 focus:outline-none focus:border-gold-500 transition"
+            >
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Calificación Inicial</label>
+            <select 
+              id="candCalificacion" 
+              class="w-full px-3 py-2 bg-navy-900 border border-navy-700 rounded-xl text-xs text-white focus:outline-none focus:border-gold-500 transition"
+            >
+              <option value="Sobresaliente (⭐ 5/5)">Sobresaliente (⭐ 5/5)</option>
+              <option value="Muy Bueno (⭐ 4/5)" selected>Muy Bueno (⭐ 4/5)</option>
+              <option value="En Evaluación (⭐ 3/5)">En Evaluación (⭐ 3/5)</option>
+              <option value="Por Mejorar (⭐ 2/5)">Por Mejorar (⭐ 2/5)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Notas del Entrevistador</label>
+          <textarea 
+            id="candNotas" 
+            rows="2" 
+            placeholder="Aptitud, motivación, disponibilidad de fechas..." 
+            class="w-full px-3 py-2 bg-navy-900 border border-navy-700 rounded-xl text-xs text-white placeholder-navy-500 focus:outline-none focus:border-gold-500 transition"
+          ></textarea>
+        </div>
+
+        <div class="pt-3 flex justify-end gap-2 border-t border-navy-700/80">
+          <button type="button" onclick="cerrarModalGuardar()" class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white bg-navy-900 border border-navy-700 transition">
+            Cancelar
+          </button>
+          <button type="submit" class="px-5 py-2 rounded-xl text-xs font-bold text-navy-950 bg-gold-400 hover:bg-gold-500 shadow-md shadow-gold-500/20 transition">
+            Guardar Ficha
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+
+  <!-- Toast Notificación -->
+  <div id="toastMessage" class="fixed bottom-6 right-6 z-50 hidden bg-navy-950 border border-gold-500/40 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3">
+    <div class="w-8 h-8 rounded-xl bg-gold-500/20 text-gold-400 flex items-center justify-center shrink-0">
+      <i data-lucide="check" class="w-4 h-4"></i>
+    </div>
+    <div>
+      <p id="toastTitle" class="text-xs font-bold text-white">Éxito</p>
+      <p id="toastBody" class="text-[11px] text-slate-400">Operación completada</p>
+    </div>
+  </div>
+
+
+  <!-- ==============================================
+       LÓGICA JAVASCRIPT EN SINGLE-FILE COMPONENT
+       ============================================== -->
+  <script>
+    /* ==============================================================
+       1. BASE DE DATOS DE TURNOS & HORARIOS OFICIALES DE SEDES
+       ============================================================== */
+    const BASE_TURNOS = [
+      // 1. CRISTO REY
+      { id: 'cr-1', sede: 'Cristo Rey', espacio: 'Campo', turno: 'Mañana', frec: 'LMV', inicio: '10:00', fin: '13:00' },
+      { id: 'cr-2', sede: 'Cristo Rey', espacio: 'Campo', turno: 'Tarde', frec: 'LMV', inicio: '17:00', fin: '20:30' },
+      { id: 'cr-3', sede: 'Cristo Rey', espacio: 'Salón', turno: 'Mañana', frec: 'MV', inicio: '10:00', fin: '12:00' },
+      { id: 'cr-4', sede: 'Cristo Rey', espacio: 'Salón', turno: 'Tarde', frec: 'MV', inicio: '17:00', fin: '20:30' },
+      { id: 'cr-5', sede: 'Cristo Rey', espacio: 'Campo', turno: 'Tarde', frec: 'MJ', inicio: '17:00', fin: '20:30' },
+      { id: 'cr-6', sede: 'Cristo Rey', espacio: 'Salón', turno: 'Tarde', frec: 'MJ', inicio: '17:00', fin: '20:30' },
+      { id: 'cr-7', sede: 'Cristo Rey', espacio: 'Salón', turno: 'Mañana', frec: 'MJ', inicio: '09:00', fin: '12:00' },
+
+      // 2. LICEO NAVAL
+      { id: 'ln-1', sede: 'Liceo Naval', espacio: 'Campo', turno: 'Tarde', frec: 'LMV', inicio: '17:00', fin: '20:30' },
+      { id: 'ln-2', sede: 'Liceo Naval', espacio: 'Tarima', turno: 'Tarde', frec: 'MV', inicio: '17:00', fin: '20:30' },
+      { id: 'ln-3', sede: 'Liceo Naval', espacio: 'Tarima', turno: 'Tarde', frec: 'LUN', inicio: '17:00', fin: '20:30' },
+      { id: 'ln-4', sede: 'Liceo Naval', espacio: 'Tarima', turno: 'Tarde', frec: 'MJ', inicio: '17:00', fin: '20:30' },
+      { id: 'ln-5', sede: 'Liceo Naval', espacio: 'Campo', turno: 'Tarde', frec: 'MJ', inicio: '17:00', fin: '20:30' },
+
+      // 3. SANTÍSIMA TRINIDAD
+      { id: 'st-1', sede: 'Santísima Trinidad', espacio: 'Campo', turno: 'Tarde', frec: 'MJ', inicio: '18:00', fin: '21:00' },
+
+      // 4. ELVIRA GARCÍA Y GARCÍA
+      { id: 'eg-1', sede: 'Elvira García y García', espacio: 'Campo', turno: 'Tarde', frec: 'LMV', inicio: '18:15', fin: '21:15' },
+      { id: 'eg-2', sede: 'Elvira García y García', espacio: 'Campo', turno: 'Tarde', frec: 'MJ', inicio: '18:15', fin: '21:15' },
+
+      // 5. LIBERTADOR
+      { id: 'lb-1', sede: 'Libertador', espacio: 'Campo', turno: 'Tarde', frec: 'LMV', inicio: '16:30', fin: '20:00' },
+      { id: 'lb-2', sede: 'Libertador', espacio: 'Patio', turno: 'Tarde', frec: 'MV', inicio: '16:30', fin: '20:00' },
+      { id: 'lb-3', sede: 'Libertador', espacio: 'Patio', turno: 'Tarde', frec: 'LUN', inicio: '16:30', fin: '20:00' },
+      { id: 'lb-4', sede: 'Libertador', espacio: 'Campo', turno: 'Tarde', frec: 'MJ', inicio: '16:30', fin: '20:00' },
+      { id: 'lb-5', sede: 'Libertador', espacio: 'Patio', turno: 'Tarde', frec: 'MJ', inicio: '17:00', fin: '20:00' },
+
+      // 6. BUENAS NUEVAS
+      { id: 'bn-1', sede: 'Buenas Nuevas', espacio: 'Campo', turno: 'Tarde', frec: 'LMV', inicio: '16:30', fin: '20:00' },
+
+      // 7. FÁTIMA
+      { id: 'ft-1', sede: 'Fátima', espacio: 'Campo', turno: 'Tarde', frec: 'LMV', inicio: '16:30', fin: '20:00' },
+      { id: 'ft-2', sede: 'Fátima', espacio: 'Patio', turno: 'Tarde', frec: 'MV', inicio: '16:30', fin: '20:00' }
+    ];
+
+    // Mapeo de frecuencias a días de la semana
+    const MAPA_DIAS = {
+      'LMV': ['Lunes', 'Miércoles', 'Viernes'],
+      'MJ': ['Martes', 'Jueves'],
+      'MV': ['Martes', 'Viernes'],
+      'LUN': ['Lunes']
+    };
+
+    // Función auxiliar para convertir 'HH:MM' a minutos transcurridos desde 00:00
+    function aMinutos(horaStr) {
+      const [h, m] = horaStr.split(':').map(Number);
+      return h * 60 + m;
+    }
+
+    // Calcula las horas semanales que aporta un turno
+    function calcularHorasSemanales(turno) {
+      const duracionSesionHoras = (aMinutos(turno.fin) - aMinutos(turno.inicio)) / 60;
+      const cantDias = (MAPA_DIAS[turno.frec] || []).length;
+      return duracionSesionHoras * cantDias;
+    }
+
+    /* ==============================================================
+       2. ESTADO GLOBAL DE LA APLICACIÓN
+       ============================================================== */
+    let moduloActual = 'presentacion'; // 'presentacion' | 'horarios' | 'candidatos'
+    let slideActual = 0;
+    const TOTAL_SLIDES = 7;
+    let turnosSeleccionadosIds = new Set();
+    let candidatosGuardados = [];
+
+    // Inicialización
+    document.addEventListener('DOMContentLoaded', () => {
+      cargarCandidatosLocalStorage();
+      renderizarSedesYTurnos();
+      actualizarContadoresHorarios();
+      actualizarProgresoSlide();
+      renderizarListaCandidatos();
+      lucide.createIcons();
+
+      // Atajos de teclado para slides
+      document.addEventListener('keydown', (e) => {
+        if (moduloActual !== 'presentacion') return;
+        if (e.key === 'ArrowRight' || e.key === ' ') {
+          e.preventDefault();
+          cambiarSlide(1);
+        } else if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          cambiarSlide(-1);
+        }
+      });
+    });
+
+    /* ==============================================================
+       3. NAVEGACIÓN ENTRE MÓDULOS PRINCIPALES
+       ============================================================== */
+    function cambiarModulo(modulo) {
+      moduloActual = modulo;
+
+      // Ocultar todas las secciones
+      document.getElementById('modulo-presentacion').classList.add('hidden');
+      document.getElementById('modulo-horarios').classList.add('hidden');
+      document.getElementById('modulo-candidatos').classList.add('hidden');
+
+      // Botones del navbar
+      const btns = ['presentacion', 'horarios', 'candidatos'];
+      btns.forEach(b => {
+        const btn = document.getElementById(`navBtn-${b}`);
+        if (b === modulo) {
+          btn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-navy-800 border border-navy-600/50 shadow-sm transition';
+        } else {
+          btn.className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-navy-500 hover:text-white transition';
+        }
+      });
+
+      // Barra de progreso de slide solo en presentación
+      const progressContainer = document.getElementById('slideProgressBarContainer');
+      if (modulo === 'presentacion') {
+        progressContainer.style.display = 'block';
+      } else {
+        progressContainer.style.display = 'none';
+      }
+
+      // Mostrar el módulo elegido
+      document.getElementById(`modulo-${modulo}`).classList.remove('hidden');
+      lucide.createIcons();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    /* ==============================================================
+       4. LÓGICA DEL SLIDE DECK (MÓDULO 1)
+       ============================================================== */
+    function cambiarSlide(direccion) {
+      const nuevoIndex = slideActual + direccion;
+      if (nuevoIndex < 0 || nuevoIndex >= TOTAL_SLIDES) return;
+
+      // Ocultar slide actual
+      const actualEl = document.getElementById(`slide-${slideActual}`);
+      if (actualEl) actualEl.classList.add('hidden');
+
+      slideActual = nuevoIndex;
+
+      // Mostrar nuevo slide
+      const nuevoEl = document.getElementById(`slide-${slideActual}`);
+      if (nuevoEl) {
+        nuevoEl.classList.remove('hidden');
+        nuevoEl.classList.remove('slide-enter');
+        void nuevoEl.offsetWidth; // Forzar reflow
+        nuevoEl.classList.add('slide-enter');
+      }
+
+      actualizarProgresoSlide();
+      lucide.createIcons();
+    }
+
+    function actualizarProgresoSlide() {
+      const pct = ((slideActual + 1) / TOTAL_SLIDES) * 100;
+      document.getElementById('slideProgressBar').style.width = `${pct}%`;
+      document.getElementById('currentSlideIndicator').innerText = slideActual + 1;
+      document.getElementById('totalSlidesIndicator').innerText = TOTAL_SLIDES;
+
+      // Estados de botones
+      document.getElementById('btnPrevSlide').disabled = slideActual === 0;
+      document.getElementById('btnNextSlide').disabled = slideActual === TOTAL_SLIDES - 1;
+    }
+
+    function togglePantallaCompleta() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+      }
+    }
+
+    /* ==============================================================
+       5. MOTOR DE RESTRICCIONES & DETECCIÓN DE CRUCES (MÓDULO 2)
+       ============================================================== */
+    
+    // Agrupa los turnos por Sede
+    function obtenerTurnosAgrupadosPorSede() {
+      const sedesMap = {};
+      BASE_TURNOS.forEach(t => {
+        if (!sedesMap[t.sede]) sedesMap[t.sede] = [];
+        sedesMap[t.sede].push(t);
+      });
+      return sedesMap;
+    }
+
+    // Renderiza la vista del Asignador
+    function renderizarSedesYTurnos() {
+      const container = document.getElementById('contenedorSedesTurnos');
+      const agrupados = obtenerTurnosAgrupadosPorSede();
+
+      container.innerHTML = Object.entries(agrupados).map(([sede, turnos]) => `
+        <div class="bg-navy-850/80 border border-navy-700/80 rounded-2xl p-5 shadow-lg">
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-navy-700/60">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-navy-800 border border-navy-700 text-gold-400 flex items-center justify-center font-bold text-xs">
+                <i data-lucide="map-pin" class="w-4 h-4"></i>
+              </div>
+              <h3 class="font-bold text-white text-base">${sede}</h3>
+            </div>
+            <span class="text-xs text-navy-500 font-medium">${turnos.length} ${turnos.length === 1 ? 'turno disponible' : 'turnos disponibles'}</span>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            ${turnos.map(t => renderizarTarjetaTurno(t)).join('')}
+          </div>
+        </div>
+      `).join('');
+
+      actualizarValidacionCruces();
+      lucide.createIcons();
+    }
+
+    // Renderiza tarjeta individual de turno
+    function renderizarTarjetaTurno(t) {
+      const horasSem = calcularHorasSemanales(t);
+      const isSelected = turnosSeleccionadosIds.has(t.id);
+
+      return `
+        <div id="card-${t.id}" class="shift-card bg-navy-900/90 border border-navy-700/90 rounded-xl p-3.5 flex flex-col justify-between hover:border-gold-500/40 relative ${isSelected ? 'selected' : ''}">
+          
+          <div>
+            <div class="flex items-start justify-between gap-2 mb-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-navy-800 text-slate-300 border border-navy-700">
+                ${t.espacio} • ${t.turno}
+              </span>
+              <span class="text-[11px] font-extrabold text-gold-400 bg-gold-500/10 px-2 py-0.5 rounded border border-gold-500/20">
+                ${horasSem} h/sem
+              </span>
+            </div>
+
+            <div class="space-y-1">
+              <div class="flex items-center gap-1.5 text-xs font-bold text-white">
+                <i data-lucide="clock" class="w-3.5 h-3.5 text-slate-400"></i>
+                <span>${t.inicio} - ${t.fin}</span>
+              </div>
+              <div class="flex items-center gap-1.5 text-[11px] text-slate-300">
+                <i data-lucide="calendar" class="w-3.5 h-3.5 text-gold-500"></i>
+                <span>${t.frec} (${(MAPA_DIAS[t.frec] || []).join(', ')})</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Mensaje de colisión si existe -->
+          <div id="clash-msg-${t.id}" class="hidden mt-2 p-1.5 rounded bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-300 leading-tight">
+          </div>
+
+          <!-- Checkbox / Botón de selección -->
+          <div class="mt-3 pt-2.5 border-t border-navy-800/80 flex items-center justify-between">
+            <label class="flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-slate-300 w-full">
+              <input 
+                type="checkbox" 
+                id="check-${t.id}" 
+                ${isSelected ? 'checked' : ''} 
+                onchange="toggleSeleccionTurno('${t.id}')"
+                class="w-4 h-4 rounded text-gold-500 bg-navy-950 border-navy-700 focus:ring-gold-500 focus:ring-offset-navy-900 cursor-pointer"
+              >
+              <span id="label-${t.id}" class="text-xs font-semibold ${isSelected ? 'text-gold-400 font-bold' : 'text-slate-300'}">
+                ${isSelected ? 'Turno Asignado' : 'Asignar Turno'}
+              </span>
+            </label>
+          </div>
+
+        </div>
+      `;
+    }
+
+    // Maneja la selección / deselección de un turno
+    function toggleSeleccionTurno(turnoId) {
+      if (turnosSeleccionadosIds.has(turnoId)) {
+        turnosSeleccionadosIds.delete(turnoId);
+      } else {
+        turnosSeleccionadosIds.add(turnoId);
+      }
+
+      actualizarValidacionCruces();
+      actualizarContadoresHorarios();
+    }
+
+    // MOTOR DE DETECCIÓN DE CRUCES EN TIEMPO REAL
+    function actualizarValidacionCruces() {
+      const turnosSeleccionados = BASE_TURNOS.filter(t => turnosSeleccionadosIds.has(t.id));
+
+      BASE_TURNOS.forEach(target => {
+        const card = document.getElementById(`card-${target.id}`);
+        const checkbox = document.getElementById(`check-${target.id}`);
+        const label = document.getElementById(`label-${target.id}`);
+        const clashMsg = document.getElementById(`clash-msg-${target.id}`);
+
+        if (!card || !checkbox) return;
+
+        // Si ya está seleccionado por el usuario, se mantiene activo y estilizado
+        if (turnosSeleccionadosIds.has(target.id)) {
+          card.classList.add('selected');
+          card.classList.remove('clashed');
+          checkbox.disabled = false;
+          label.innerText = 'Turno Asignado';
+          label.className = 'text-xs font-bold text-gold-400';
+          clashMsg.classList.add('hidden');
+          return;
+        }
+
+        // Si no está seleccionado, comprobar si colisiona con CUALQUIERA de los seleccionados
+        let chocaCon = null;
+        let diasChoque = [];
+
+        for (const sel of turnosSeleccionados) {
+          const diasTarget = MAPA_DIAS[target.frec] || [];
+          const diasSel = MAPA_DIAS[sel.frec] || [];
+
+          // 1. Verificar si coinciden en algún día de la semana
+          const diasComunes = diasTarget.filter(d => diasSel.includes(d));
+
+          if (diasComunes.length > 0) {
+            // 2. Verificar solapamiento de intervalos horarios: [inicioA < finB] y [inicioB < finA]
+            const iniTarget = aMinutos(target.inicio);
+            const finTarget = aMinutos(target.fin);
+            const iniSel = aMinutos(sel.inicio);
+            const finSel = aMinutos(sel.fin);
+
+            const seSolapan = (iniTarget < finSel) && (iniSel < finTarget);
+
+            if (seSolapan) {
+              chocaCon = sel;
+              diasChoque = diasComunes;
+              break; // Basta con un choque para bloquear
+            }
+          }
+        }
+
+        if (chocaCon) {
+          // Bloquear turno por choque
+          card.classList.remove('selected');
+          card.classList.add('clashed');
+          checkbox.disabled = true;
+          checkbox.checked = false;
+          label.innerText = 'Horario Bloqueado';
+          label.className = 'text-xs font-semibold text-rose-400/80';
+
+          clashMsg.innerHTML = `⚠️ Choca con <strong>${chocaCon.sede}</strong> (${chocaCon.inicio}-${chocaCon.fin}) los <strong>${diasChoque.join(', ')}</strong>`;
+          clashMsg.classList.remove('hidden');
+        } else {
+          // Turno libre y disponible
+          card.classList.remove('selected', 'clashed');
+          checkbox.disabled = false;
+          checkbox.checked = false;
+          label.innerText = 'Asignar Turno';
+          label.className = 'text-xs font-semibold text-slate-300';
+          clashMsg.classList.add('hidden');
+        }
+      });
+    }
+
+    function actualizarContadoresHorarios() {
+      const turnosSeleccionados = BASE_TURNOS.filter(t => turnosSeleccionadosIds.has(t.id));
+      const totalHoras = turnosSeleccionados.reduce((acc, t) => acc + calcularHorasSemanales(t), 0);
+
+      document.getElementById('counterTurnos').innerText = turnosSeleccionados.length;
+      document.getElementById('counterHoras').innerText = `${totalHoras.toFixed(1)} h/sem`;
+      document.getElementById('badgeHorasNav').innerText = `${totalHoras.toFixed(1)}h`;
+    }
+
+    function limpiarSeleccionHorarios() {
+      turnosSeleccionadosIds.clear();
+      actualizarValidacionCruces();
+      actualizarContadoresHorarios();
+      mostrarToast('Horarios liberados', 'Se han desmarcado todos los turnos.');
+    }
+
+    /* ==============================================================
+       6. GESTIÓN DE CANDIDATOS & LOCALSTORAGE (MÓDULO 3)
+       ============================================================== */
+    function abrirModalGuardar() {
+      if (turnosSeleccionadosIds.size === 0) {
+        alert('Por favor selecciona al menos un turno disponible para el candidato.');
+        return;
+      }
+
+      const turnosSeleccionados = BASE_TURNOS.filter(t => turnosSeleccionadosIds.has(t.id));
+      const totalHoras = turnosSeleccionados.reduce((acc, t) => acc + calcularHorasSemanales(t), 0);
+
+      document.getElementById('modalResumenTurnos').innerText = turnosSeleccionados.length;
+      document.getElementById('modalResumenHoras').innerText = `${totalHoras.toFixed(1)} h/sem`;
+      document.getElementById('modalListaTurnosText').innerText = turnosSeleccionados
+        .map(t => `${t.sede} (${t.espacio} ${t.frec} ${t.inicio}-${t.fin})`)
+        .join(' • ');
+
+      document.getElementById('modalRegistroCandidato').classList.remove('hidden');
+    }
+
+    function cerrarModalGuardar() {
+      document.getElementById('modalRegistroCandidato').classList.add('hidden');
+    }
+
+    function guardarCandidatoSubmit(e) {
+      e.preventDefault();
+
+      const nombre = document.getElementById('candNombre').value.trim();
+      const telefono = document.getElementById('candTelefono').value.trim();
+      const distrito = document.getElementById('candDistrito').value.trim();
+      const edad = document.getElementById('candEdad').value.trim();
+      const calificacion = document.getElementById('candCalificacion').value;
+      const notas = document.getElementById('candNotas').value.trim();
+
+      const turnosSeleccionados = BASE_TURNOS.filter(t => turnosSeleccionadosIds.has(t.id));
+      const totalHoras = turnosSeleccionados.reduce((acc, t) => acc + calcularHorasSemanales(t), 0);
+
+      const nuevoCandidato = {
+        id: Date.now().toString(),
+        fecha: new Date().toLocaleString('es-PE'),
+        nombre,
+        telefono,
+        distrito: distrito || 'No indicado',
+        edad: edad || 'No indicada',
+        calificacion,
+        notas: notas || 'Sin observaciones adicionales',
+        totalTurnos: turnosSeleccionados.length,
+        totalHoras: Number(totalHoras.toFixed(1)),
+        turnos: turnosSeleccionados.map(t => ({
+          sede: t.sede,
+          espacio: t.espacio,
+          turno: t.turno,
+          frec: t.frec,
+          horario: `${t.inicio} - ${t.fin}`,
+          horasSem: calcularHorasSemanales(t)
+        }))
+      };
+
+      candidatosGuardados.unshift(nuevoCandidato);
+      guardarCandidatosLocalStorage();
+
+      // Reset
+      document.getElementById('formCandidato').reset();
+      cerrarModalGuardar();
+      limpiarSeleccionHorarios();
+
+      renderizarListaCandidatos();
+      cambiarModulo('candidatos');
+      mostrarToast('¡Postulante Registrado!', `${nombre} guardado con ${nuevoCandidato.totalHoras} h/sem asignadas.`);
+    }
+
+    function cargarCandidatosLocalStorage() {
+      try {
+        const raw = localStorage.getItem('campeones_lima_candidatos_v1');
+        if (raw) {
+          candidatosGuardados = JSON.parse(raw);
+        } else {
+          candidatosGuardados = [];
+        }
+      } catch {
+        candidatosGuardados = [];
+      }
+      actualizarBadgeCandidatosCount();
+    }
+
+    function guardarCandidatosLocalStorage() {
+      localStorage.setItem('campeones_lima_candidatos_v1', JSON.stringify(candidatosGuardados));
+      actualizarBadgeCandidatosCount();
+    }
+
+    function actualizarBadgeCandidatosCount() {
+      document.getElementById('badgeCandidatosCount').innerText = candidatosGuardados.length;
+    }
+
+    function renderizarListaCandidatos(filtrados = null) {
+      const lista = filtrados !== null ? filtrados : candidatosGuardados;
+      const container = document.getElementById('listaCandidatosContainer');
+
+      if (lista.length === 0) {
+        container.innerHTML = `
+          <div class="bg-navy-850 border border-navy-700 rounded-2xl p-12 text-center">
+            <i data-lucide="user-x" class="w-10 h-10 text-navy-600 mx-auto mb-3"></i>
+            <h4 class="font-bold text-white text-base">No hay postulantes registrados</h4>
+            <p class="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
+              Utiliza el Asignador de Horarios durante la entrevista para seleccionar la disponibilidad y registrar a cada voluntario.
+            </p>
+            <button onclick="cambiarModulo('horarios')" class="mt-4 px-4 py-2 rounded-xl text-xs font-bold text-navy-950 bg-gold-400 hover:bg-gold-500 transition">
+              Ir al Asignador de Horarios
+            </button>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = lista.map(c => `
+        <div class="bg-navy-850 border border-navy-700 hover:border-gold-500/30 rounded-2xl p-5 shadow-lg transition">
+          <div class="flex flex-col md:flex-row md:items-start justify-between gap-4">
+            
+            <div class="space-y-1">
+              <div class="flex items-center gap-2 flex-wrap">
+                <h3 class="text-base font-bold text-white">${c.nombre}</h3>
+                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gold-500/20 text-gold-400 border border-gold-500/30">
+                  ${c.calificacion}
+                </span>
+                <span class="text-xs text-navy-500">• ${c.fecha}</span>
+              </div>
+
+              <div class="flex items-center gap-4 text-xs text-slate-300 pt-1 flex-wrap">
+                <span class="flex items-center gap-1.5">
+                  <i data-lucide="phone" class="w-3.5 h-3.5 text-emerald-400"></i>
+                  ${c.telefono}
+                </span>
+                <span class="flex items-center gap-1.5">
+                  <i data-lucide="map-pin" class="w-3.5 h-3.5 text-blue-400"></i>
+                  ${c.distrito}
+                </span>
+                <span class="flex items-center gap-1.5">
+                  <i data-lucide="clock" class="w-3.5 h-3.5 text-gold-400"></i>
+                  <strong>${c.totalHoras} hrs/sem</strong> (${c.totalTurnos} turnos)
+                </span>
+              </div>
+
+              ${c.notas ? `<p class="text-xs text-slate-400 italic mt-2 bg-navy-900/60 p-2.5 rounded-xl border border-navy-700/60">"${c.notas}"</p>` : ''}
+            </div>
+
+            <!-- Acciones -->
+            <div class="flex items-center gap-2 shrink-0">
+              <button onclick="copiarResumenWhatsApp('${c.id}')" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                <span>Copiar WhatsApp</span>
+              </button>
+
+              <button onclick="eliminarCandidato('${c.id}')" class="p-2 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition" title="Eliminar registro">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+            </div>
+
+          </div>
+
+          <!-- Turnos Asignados -->
+          <div class="mt-4 pt-3 border-t border-navy-700/60">
+            <p class="text-[11px] font-bold text-navy-500 uppercase tracking-wider mb-2">Turnos & Sedes Asignadas:</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              ${c.turnos.map(t => `
+                <div class="p-2.5 rounded-xl bg-navy-900/80 border border-navy-700/80 flex items-center justify-between text-xs">
+                  <div>
+                    <span class="font-bold text-white block">${t.sede}</span>
+                    <span class="text-[11px] text-slate-400">${t.espacio} • ${t.frec} (${t.horario})</span>
+                  </div>
+                  <span class="text-[10px] font-extrabold text-gold-400 bg-gold-500/10 px-1.5 py-0.5 rounded">
+                    ${t.horasSem}h
+                  </span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+        </div>
+      `).join('');
+
+      lucide.createIcons();
+    }
+
+    function filtrarCandidatosUI() {
+      const term = (document.getElementById('inputBusquedaCandidato').value || '').toLowerCase().trim();
+      if (!term) {
+        renderizarListaCandidatos();
+        return;
+      }
+      const filtrados = candidatosGuardados.filter(c => 
+        c.nombre.toLowerCase().includes(term) ||
+        c.telefono.toLowerCase().includes(term) ||
+        c.distrito.toLowerCase().includes(term) ||
+        c.turnos.some(t => t.sede.toLowerCase().includes(term))
+      );
+      renderizarListaCandidatos(filtrados);
+    }
+
+    function copiarResumenWhatsApp(candidatoId) {
+      const c = candidatosGuardados.find(item => item.id === candidatoId);
+      if (!c) return;
+
+      const lineasTurnos = c.turnos.map(t => `• *${t.sede}:* ${t.espacio} ${t.frec} (${t.horario}) -> ${t.horasSem} h/sem`).join('\n');
+
+      const mensaje = `🏆 *FICHA DE POSTULANTE - CAMPEONES LIMA*
+📅 *Fecha:* ${c.fecha}
+👤 *Nombre:* ${c.nombre}
+📱 *WhatsApp:* ${c.telefono}
+📍 *Distrito:* ${c.distrito} (Edad: ${c.edad})
+⭐ *Calificación:* ${c.calificacion}
+⏱️ *Total Disponibilidad:* ${c.totalHoras} hrs/semana (${c.totalTurnos} turnos)
+
+🏟️ *Turnos y Sedes Asignadas:*
+${lineasTurnos}
+
+📝 *Notas del Entrevistador:*
+${c.notas}
+
+✅ *Estado:* Registrado en sistema oficial.`;
+
+      navigator.clipboard.writeText(mensaje).then(() => {
+        mostrarToast('¡Copiado al portapapeles!', 'Listo para pegar en WhatsApp o notas internas.');
+      }).catch(() => {
+        alert('No se pudo copiar automáticamente. Por favor copia manualmente.');
+      });
+    }
+
+    function eliminarCandidato(candidatoId) {
+      const c = candidatosGuardados.find(item => item.id === candidatoId);
+      if (!c) return;
+
+      if (confirm(`¿Estás seguro de eliminar el registro de ${c.nombre}?`)) {
+        candidatosGuardados = candidatosGuardados.filter(item => item.id !== candidatoId);
+        guardarCandidatosLocalStorage();
+        renderizarListaCandidatos();
+        mostrarToast('Registro eliminado', `Se eliminó la ficha de ${c.nombre}.`);
+      }
+    }
+
+    // Exportar a CSV compatible con Excel (UTF-8 con BOM)
+    function exportarCandidatosCSV() {
+      if (candidatosGuardados.length === 0) {
+        alert('No hay candidatos registrados para exportar.');
+        return;
+      }
+
+      const headers = ['ID', 'Fecha Entrevista', 'Nombre', 'Telefono', 'Distrito', 'Edad', 'Calificacion', 'Total Horas Semanales', 'Total Turnos', 'Detalle de Turnos', 'Notas'];
+
+      const filas = candidatosGuardados.map(c => {
+        const turnosStr = c.turnos.map(t => `${t.sede} (${t.espacio} ${t.frec} ${t.horario})`).join('; ');
+        return [
+          `"${c.id}"`,
+          `"${c.fecha}"`,
+          `"${c.nombre.replace(/"/g, '""')}"`,
+          `"${c.telefono}"`,
+          `"${c.distrito.replace(/"/g, '""')}"`,
+          `"${c.edad}"`,
+          `"${c.calificacion}"`,
+          `"${c.totalHoras}"`,
+          `"${c.totalTurnos}"`,
+          `"${turnosStr.replace(/"/g, '""')}"`,
+          `"${c.notas.replace(/"/g, '""')}"`
+        ].join(',');
+      });
+
+      // BOM para compatibilidad con tildes y caracteres especiales en Excel
+      const csvContent = '\uFEFF' + [headers.join(','), ...filas].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Candidatos_Staff_CampeonesLima_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      mostrarToast('Archivo descargado', 'CSV generado y listo para abrir en Microsoft Excel.');
+    }
+
+    /* ==============================================================
+       7. UTILIDADES VISUALES (TOAST)
+       ============================================================== */
+    let toastTimeout = null;
+    function mostrarToast(titulo, mensaje) {
+      const toast = document.getElementById('toastMessage');
+      document.getElementById('toastTitle').innerText = titulo;
+      document.getElementById('toastBody').innerText = mensaje;
+
+      toast.classList.remove('hidden');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.add('hidden');
+      }, 3500);
+    }
+  </script>
+</body>
+</html>

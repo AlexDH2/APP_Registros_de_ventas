@@ -30,6 +30,7 @@ import {
   fetchMetricasYVentas,
   emitirVentaEntradas,
 } from '../lib/entradasService';
+import { supabase } from '../lib/supabase';
 import EventoHeaderCard from '../components/entradas/EventoHeaderCard';
 import BoleteriaForm from '../components/entradas/BoleteriaForm';
 import MisVentasTab from '../components/entradas/MisVentasTab';
@@ -86,12 +87,31 @@ export default function EntradasVentaScreen() {
       const savedUserRol = await AsyncStorage.getItem('usuario_rol');
       if (savedUserId) setColaboradorId(parseInt(savedUserId, 10));
       if (savedUserNombre) setColaboradorNombre(savedUserNombre);
-      if (savedUserRol) {
-        const rolLimpio = savedUserRol.toUpperCase().trim();
-        setUsuarioRol(rolLimpio);
-        if (rolLimpio === 'AUXILIAR' && activeTab === 'CUADRE') {
-          setActiveTab('VENTA');
+
+      let rolFinal = savedUserRol ? savedUserRol.toUpperCase().trim() : '';
+
+      // Si no existe rol en almacenamiento local, consultar usuarios en Supabase para auto-sincronizar
+      if (!rolFinal && (savedUserId || savedUserNombre)) {
+        try {
+          let q = supabase.from('usuarios').select('rol');
+          if (savedUserId) {
+            q = q.eq('id', parseInt(savedUserId, 10));
+          } else if (savedUserNombre) {
+            q = q.ilike('nombre_completo', savedUserNombre);
+          }
+          const { data: uData } = await q.maybeSingle();
+          if (uData?.rol) {
+            rolFinal = uData.rol.toUpperCase().trim();
+            await AsyncStorage.setItem('usuario_rol', rolFinal);
+          }
+        } catch (e) {
+          console.warn('No se pudo verificar rol en Supabase:', e);
         }
+      }
+
+      setUsuarioRol(rolFinal);
+      if (rolFinal === 'AUXILIAR' && activeTab === 'CUADRE') {
+        setActiveTab('VENTA');
       }
 
       const nombreActual = savedUserNombre || 'Colaborador';
@@ -171,7 +191,11 @@ export default function EntradasVentaScreen() {
     setModalEditarNombreVisible(false);
   };
 
-  const puedeVerCuadre = usuarioRol !== 'AUXILIAR';
+  const puedeVerCuadre = Boolean(
+    usuarioRol &&
+    usuarioRol !== 'AUXILIAR' &&
+    (usuarioRol === 'CREADOR' || usuarioRol === 'ADMIN' || usuarioRol === 'LOGISTICA')
+  );
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
