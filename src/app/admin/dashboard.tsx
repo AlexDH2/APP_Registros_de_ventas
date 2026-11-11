@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LogOut, Users, MapPin, DollarSign, TrendingUp, AlertTriangle, Truck, Building2, Inbox, Tag, Download, Ticket, Plus, X } from 'lucide-react-native';
+import { LogOut, Users, MapPin, DollarSign, TrendingUp, AlertTriangle, Truck, Building2, Inbox, Tag, Download, Ticket, Plus, X, Presentation } from 'lucide-react-native';
 import { confirmAndLogout } from '../../lib/auth';
 
 type SedeGlobal = {
@@ -168,7 +168,7 @@ export default function AdminDashboard() {
 
         {/* Acceso Directo: Control de Entradas & Evento (En Vivo) */}
         <TouchableOpacity 
-          style={[styles.reportBanner, { backgroundColor: '#1e3a8a', shadowColor: '#1e3a8a', marginBottom: 26 }]} 
+          style={[styles.reportBanner, { backgroundColor: '#1e3a8a', shadowColor: '#1e3a8a', marginBottom: 12 }]} 
           onPress={() => router.push('/admin/eventos_entradas')}
           activeOpacity={0.85}
         >
@@ -184,6 +184,28 @@ export default function AdminDashboard() {
             </View>
             <Text style={styles.reportBannerSub}>
               Monitoreo simultáneo de 5 colaboradores, aforo y boletería
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Acceso Directo: Entrevistas & Selección de Staff Deportivo */}
+        <TouchableOpacity 
+          style={[styles.reportBanner, { backgroundColor: '#0f172a', borderColor: '#f59e0b', borderWidth: 1.5, shadowColor: '#f59e0b', marginBottom: 26 }]} 
+          onPress={() => router.push('/entrevistas')}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.reportIconBox, { backgroundColor: '#f59e0b' }]}>
+            <Presentation color="#0d1b2a" size={26} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={[styles.reportBannerTitle, { color: '#ffffff' }]}>Entrevistas & Staff Deportivo</Text>
+              <View style={{ backgroundColor: '#f59e0b', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ color: '#0d1b2a', fontSize: 10, fontWeight: '800' }}>NUEVO</Text>
+              </View>
+            </View>
+            <Text style={[styles.reportBannerSub, { color: '#94a3b8' }]}>
+              Pitch interactivo, asignador de turnos anti-cruces y postulantes
             </Text>
           </View>
         </TouchableOpacity>

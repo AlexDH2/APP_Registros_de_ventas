@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
-import { UserPlus, UserCircle, Save, X } from 'lucide-react-native';
+import { UserPlus, UserCircle, Save, X, Presentation } from 'lucide-react-native';
 
 export default function ManageUsersScreen() {
   const [usuarios, setUsuarios] = useState<any[]>([]);
@@ -171,6 +171,34 @@ export default function ManageUsersScreen() {
             <Text style={styles.addBtnText}>+ Nueva Cuenta</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Acceso a Entrevistas de Staff */}
+        <TouchableOpacity
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            backgroundColor: '#0f172a',
+            padding: 12,
+            borderRadius: 12,
+            marginBottom: 16,
+            borderWidth: 1.5,
+            borderColor: '#f59e0b',
+          }}
+          onPress={() => router.push('/entrevistas')}
+          activeOpacity={0.8}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <View style={{ backgroundColor: '#f59e0b', padding: 8, borderRadius: 8 }}>
+              <Presentation color="#0d1b2a" size={18} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 13 }}>Entrevistas & Staff Deportivo</Text>
+              <Text style={{ color: '#94a3b8', fontSize: 11 }}>Pitch, turnos sin cruces y postulantes</Text>
+            </View>
+          </View>
+          <Text style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: 12 }}>Abrir →</Text>
+        </TouchableOpacity>
 
         {usuarios.map(u => {
           const badge = getRoleBadgeInfo(u.rol);

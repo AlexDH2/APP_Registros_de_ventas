@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator, useColorS
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ShoppingCart, Package, LogOut, MapPin, Truck, AlertTriangle, BarChart2, WifiOff, Droplets, Zap, RefreshCw, Clock, Ticket, X } from 'lucide-react-native';
+import { ShoppingCart, Package, LogOut, MapPin, Truck, AlertTriangle, BarChart2, WifiOff, Droplets, Zap, RefreshCw, Clock, Ticket, X, Presentation } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { getOfflineSales, syncOfflineSales, saveOfflineSale } from '../lib/offlineSync';
 import { colors, fonts } from '../theme';
@@ -771,6 +771,27 @@ export default function HomeScreen() {
               </View>
               <Text style={[dynamicStyles.cardSubtitle, { color: '#3b82f6' }]}>
                 Boletería rápida, tickets correlativos y cuadre personal
+              </Text>
+            </View>
+          </AnimatedButton>
+
+          {/* Módulo de Entrevistas & Selección de Staff Deportivo */}
+          <AnimatedButton
+            style={[dynamicStyles.rowCard, { borderColor: '#fde68a', backgroundColor: '#fffbeb', marginBottom: 12 }]}
+            onPress={() => router.push('/entrevistas')}
+          >
+            <View style={[dynamicStyles.iconWrapperRow, { backgroundColor: '#fef3c7' }]}>
+              <Presentation color="#d97706" size={24} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[dynamicStyles.cardTitle, { color: '#92400e' }]}>Entrevistas & Staff</Text>
+                <View style={{ backgroundColor: '#d97706', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: 'white', fontSize: 10, fontFamily: fonts.bold }}>STAFF</Text>
+                </View>
+              </View>
+              <Text style={[dynamicStyles.cardSubtitle, { color: '#b45309' }]}>
+                Pitch interactivo, turnos sin cruces y postulantes
               </Text>
             </View>
           </AnimatedButton>
