@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useColorScheme, View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import {
   useFonts,
   Poppins_400Regular,
@@ -9,37 +9,22 @@ import {
   Poppins_700Bold,
   Poppins_800ExtraBold,
 } from '@expo-google-fonts/poppins';
-import { colors } from '../theme';
+import { ThemeProvider, useAppTheme } from '../context/ThemeContext';
 
-export default function Layout() {
-  const colorScheme = useColorScheme();
-  const theme = colorScheme === 'dark' ? colors.dark : colors.light;
-  
-  const [fontsLoaded] = useFonts({
-    Poppins_400Regular,
-    Poppins_500Medium,
-    Poppins_600SemiBold,
-    Poppins_700Bold,
-    Poppins_800ExtraBold,
-  });
-
-  if (!fontsLoaded) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: theme.background }}>
-        <ActivityIndicator size="large" color={theme.primary} />
-      </View>
-    );
-  }
+function NavigationStack() {
+  const { theme, isDark } = useAppTheme();
 
   return (
     <>
-      <Stack screenOptions={{
-        headerTitleStyle: { fontFamily: 'Poppins_600SemiBold' },
-        headerStyle: { backgroundColor: colors.light.navBg },
-        headerTintColor: colors.light.text,
-        headerShadowVisible: false,
-        contentStyle: { backgroundColor: colors.light.background },
-      }}>
+      <Stack
+        screenOptions={{
+          headerTitleStyle: { fontFamily: 'Poppins_600SemiBold' },
+          headerStyle: { backgroundColor: theme.navBg },
+          headerTintColor: theme.text,
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: theme.background },
+        }}
+      >
         <Stack.Screen name="index" options={{ title: 'Login', headerShown: false }} />
         <Stack.Screen name="home" options={{ title: 'Dashboard', headerBackVisible: false, headerShown: false }} />
         <Stack.Screen name="sale" options={{ title: 'Registrar Venta' }} />
@@ -65,7 +50,31 @@ export default function Layout() {
         <Stack.Screen name="admin/eventos_entradas" options={{ title: 'Control de Evento & Entradas', headerShown: false }} />
         <Stack.Screen name="entrevistas" options={{ title: 'Entrevistas & Staff', headerShown: false }} />
       </Stack>
-      <StatusBar style="dark" />
+      <StatusBar style={isDark ? 'light' : 'dark'} />
     </>
+  );
+}
+
+export default function Layout() {
+  const [fontsLoaded] = useFonts({
+    Poppins_400Regular,
+    Poppins_500Medium,
+    Poppins_600SemiBold,
+    Poppins_700Bold,
+    Poppins_800ExtraBold,
+  });
+
+  if (!fontsLoaded) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0d1b2a' }}>
+        <ActivityIndicator size="large" color="#f59e0b" />
+      </View>
+    );
+  }
+
+  return (
+    <ThemeProvider>
+      <NavigationStack />
+    </ThemeProvider>
   );
 }

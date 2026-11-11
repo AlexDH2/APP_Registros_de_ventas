@@ -4,8 +4,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LogOut, Users, MapPin, DollarSign, TrendingUp, AlertTriangle, Truck, Building2, Inbox, Tag, Download, Ticket, Plus, X, Presentation } from 'lucide-react-native';
+import { LogOut, Users, MapPin, DollarSign, TrendingUp, AlertTriangle, Truck, Building2, Inbox, Tag, Download, Ticket, Plus, X, Presentation, Settings } from 'lucide-react-native';
 import { confirmAndLogout } from '../../lib/auth';
+import { useAppTheme } from '../../context/ThemeContext';
+import ModalAjustes from '../../components/ModalAjustes';
 
 type SedeGlobal = {
   id: number;
@@ -14,6 +16,8 @@ type SedeGlobal = {
 };
 
 export default function AdminDashboard() {
+  const { theme, isDark } = useAppTheme();
+  const [modalAjustesVisible, setModalAjustesVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [nombre, setNombre] = useState('');
   const [sedesData, setSedesData] = useState<SedeGlobal[]>([]);
@@ -130,15 +134,24 @@ export default function AdminDashboard() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       <ScrollView contentContainerStyle={styles.scroll}>
         
-        <View style={styles.header}>
-          <Text style={styles.greeting}>Panel Maestro</Text>
-          <Text style={styles.subtitle}>Creador: {nombre}</Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>👑 NIVEL: CREADOR (ACCESO TOTAL)</Text>
+        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }]}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.greeting, { color: theme.text }]}>Panel Maestro</Text>
+            <Text style={[styles.subtitle, { color: theme.textMuted }]}>Creador: {nombre}</Text>
+            <View style={styles.roleBadge}>
+              <Text style={styles.roleBadgeText}>👑 NIVEL: CREADOR (ACCESO TOTAL)</Text>
+            </View>
           </View>
+          <TouchableOpacity
+            style={[styles.settingsTopBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
+            onPress={() => setModalAjustesVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Settings color={theme.text} size={22} />
+          </TouchableOpacity>
         </View>
 
         <View style={styles.globalCard}>
@@ -450,6 +463,11 @@ export default function AdminDashboard() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Modal Ajustes & Selector de Tema */}
+      <ModalAjustes
+        visible={modalAjustesVisible}
+        onClose={() => setModalAjustesVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -459,6 +477,11 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { padding: 20, paddingBottom: 45 },
   header: { marginBottom: 30 },
+  settingsTopBtn: {
+    padding: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
   greeting: { fontSize: 32, fontWeight: '900', color: '#0f172a' },
   subtitle: { fontSize: 16, color: '#64748b', marginTop: 5 },
   roleBadge: {

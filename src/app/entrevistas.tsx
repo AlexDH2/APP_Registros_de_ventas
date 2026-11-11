@@ -16,16 +16,21 @@ import {
   Presentation,
   Clock,
   Users,
+  Settings,
 } from 'lucide-react-native';
 import { CandidatoStaff } from '../data/turnosStaffData';
 import PresentacionSlideDeck from '../components/entrevistas/PresentacionSlideDeck';
 import AsignadorHorariosTab from '../components/entrevistas/AsignadorHorariosTab';
 import CandidatosListaTab from '../components/entrevistas/CandidatosListaTab';
+import ModalAjustes from '../components/ModalAjustes';
+import { useAppTheme } from '../context/ThemeContext';
 import { fonts } from '../theme';
 
 const STORAGE_KEY_CANDIDATOS = '@campeones_candidatos_staff';
 
 export default function EntrevistasScreen() {
+  const { theme, isDark } = useAppTheme();
+  const [modalAjustesVisible, setModalAjustesVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<'PRESENTACION' | 'HORARIOS' | 'CANDIDATOS'>('PRESENTACION');
   const [candidatos, setCandidatos] = useState<CandidatoStaff[]>([]);
 
@@ -97,7 +102,13 @@ export default function EntrevistasScreen() {
             <Text style={styles.headerSub}>Club Campeones Lima</Text>
           </View>
 
-          <View style={styles.placeholderRight} />
+          <TouchableOpacity
+            style={styles.backBtn}
+            onPress={() => setModalAjustesVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Settings size={18} color="#ffffff" />
+          </TouchableOpacity>
         </View>
 
         {/* Pestañas de Navegación Fijas Superiores */}
@@ -194,6 +205,12 @@ export default function EntrevistasScreen() {
           )}
         </View>
       </KeyboardAvoidingView>
+
+      {/* Modal de Ajustes & Selector de Tema */}
+      <ModalAjustes
+        visible={modalAjustesVisible}
+        onClose={() => setModalAjustesVisible(false)}
+      />
     </SafeAreaView>
   );
 }

@@ -16,8 +16,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ticket, Users, Wallet, ArrowLeft, RefreshCw, X } from 'lucide-react-native';
-import { colors, fonts } from '../theme';
+import { Ticket, Users, Wallet, ArrowLeft, RefreshCw, X, Settings } from 'lucide-react-native';
+import { fonts } from '../theme';
+import { useAppTheme } from '../context/ThemeContext';
+import ModalAjustes from '../components/ModalAjustes';
 import {
   Evento,
   VentaEntrada,
@@ -39,8 +41,8 @@ import VentaExitosaModal from '../components/entradas/VentaExitosaModal';
 import ModalVerComprobante from '../components/entradas/admin/ModalVerComprobante';
 
 export default function EntradasVentaScreen() {
-  const colorScheme = useColorScheme();
-  const theme = colorScheme === 'dark' ? colors.dark : colors.light;
+  const { theme, isDark } = useAppTheme();
+  const [modalAjustesVisible, setModalAjustesVisible] = useState<boolean>(false);
 
   // Sesión y Colaborador
   const [colaboradorId, setColaboradorId] = useState<number | null>(null);
@@ -216,13 +218,23 @@ export default function EntradasVentaScreen() {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.refreshIconBtn} onPress={cargarDatos} disabled={loading}>
-            {loading ? (
-              <ActivityIndicator size="small" color={theme.primary} />
-            ) : (
-              <RefreshCw size={18} color={theme.textMuted} />
-            )}
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity style={styles.refreshIconBtn} onPress={cargarDatos} disabled={loading}>
+              {loading ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <RefreshCw size={18} color={theme.textMuted} />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.refreshIconBtn}
+              onPress={() => setModalAjustesVisible(true)}
+              activeOpacity={0.7}
+            >
+              <Settings size={18} color={theme.textMuted} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Tarjeta de Información del Evento (Extraída de BD) */}
@@ -405,6 +417,11 @@ export default function EntradasVentaScreen() {
           </View>
         </View>
       </Modal>
+      {/* Modal Ajustes & Selector de Tema */}
+      <ModalAjustes
+        visible={modalAjustesVisible}
+        onClose={() => setModalAjustesVisible(false)}
+      />
     </SafeAreaView>
   );
 }

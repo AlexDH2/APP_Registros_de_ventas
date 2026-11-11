@@ -1,12 +1,14 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator, useColorScheme, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ShoppingCart, Package, LogOut, MapPin, Truck, AlertTriangle, BarChart2, WifiOff, Droplets, Zap, RefreshCw, Clock, Ticket, X, Presentation } from 'lucide-react-native';
+import { ShoppingCart, Package, LogOut, MapPin, Truck, AlertTriangle, BarChart2, WifiOff, Droplets, Zap, RefreshCw, Clock, Ticket, X, Presentation, Settings } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { getOfflineSales, syncOfflineSales, saveOfflineSale } from '../lib/offlineSync';
-import { colors, fonts } from '../theme';
+import { fonts } from '../theme';
+import { useAppTheme } from '../context/ThemeContext';
+import ModalAjustes from '../components/ModalAjustes';
 import AnimatedButton from '../components/AnimatedButton';
 import { confirmAndLogout } from '../lib/auth';
 
@@ -17,8 +19,8 @@ type LowStockAlert = {
 };
 
 export default function HomeScreen() {
-  const colorScheme = useColorScheme();
-  const theme = colorScheme === 'dark' ? colors.dark : colors.light;
+  const { theme, isDark } = useAppTheme();
+  const [modalAjustesVisible, setModalAjustesVisible] = useState<boolean>(false);
 
   const [sedeNombre, setSedeNombre] = useState<string>('');
   const [usuarioNombre, setUsuarioNombre] = useState<string>('');
@@ -551,19 +553,29 @@ export default function HomeScreen() {
     <SafeAreaView style={dynamicStyles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
         
-        <View style={styles.header}>
-          <Text style={dynamicStyles.greeting}>Hola{usuarioNombre ? `, ${usuarioNombre}` : ''}!</Text>
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 4 }}>
-            <View style={[styles.locationBadge, { backgroundColor: theme.primaryLight }]}>
-              <MapPin color={theme.primary} size={16} />
-              <Text style={[styles.locationText, { color: theme.primary }]}>{sedeNombre}</Text>
-            </View>
-            <View style={[styles.roleBadgeSmall, { backgroundColor: usuarioRol === 'CREADOR' || usuarioRol === 'ADMIN' ? '#fef3c7' : usuarioRol === 'LOGISTICA' ? '#ecfdf5' : '#eff6ff' }]}>
-              <Text style={[styles.roleBadgeSmallText, { color: usuarioRol === 'CREADOR' || usuarioRol === 'ADMIN' ? '#b45309' : usuarioRol === 'LOGISTICA' ? '#059669' : '#2563eb' }]}>
-                {usuarioRol === 'CREADOR' || usuarioRol === 'ADMIN' ? '👑 Creador' : usuarioRol === 'LOGISTICA' ? '🚚 Logística' : '👨‍🏫 Auxiliar / Profesor'}
-              </Text>
+        <View style={[styles.header, { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }]}>
+          <View style={{ flex: 1, paddingRight: 10 }}>
+            <Text style={dynamicStyles.greeting}>Hola{usuarioNombre ? `, ${usuarioNombre}` : ''}!</Text>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
+              <View style={[styles.locationBadge, { backgroundColor: theme.primaryLight }]}>
+                <MapPin color={theme.primary} size={16} />
+                <Text style={[styles.locationText, { color: theme.primary }]}>{sedeNombre}</Text>
+              </View>
+              <View style={[styles.roleBadgeSmall, { backgroundColor: usuarioRol === 'CREADOR' || usuarioRol === 'ADMIN' ? '#fef3c7' : usuarioRol === 'LOGISTICA' ? '#ecfdf5' : '#eff6ff' }]}>
+                <Text style={[styles.roleBadgeSmallText, { color: usuarioRol === 'CREADOR' || usuarioRol === 'ADMIN' ? '#b45309' : usuarioRol === 'LOGISTICA' ? '#059669' : '#2563eb' }]}>
+                  {usuarioRol === 'CREADOR' || usuarioRol === 'ADMIN' ? '👑 Creador' : usuarioRol === 'LOGISTICA' ? '🚚 Logística' : '👨‍🏫 Auxiliar / Profesor'}
+                </Text>
+              </View>
             </View>
           </View>
+
+          <TouchableOpacity
+            style={[styles.settingsTopBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
+            onPress={() => setModalAjustesVisible(true)}
+            activeOpacity={0.7}
+          >
+            <Settings color={theme.text} size={20} />
+          </TouchableOpacity>
         </View>
 
         {offlineCount > 0 && (
@@ -859,12 +871,23 @@ export default function HomeScreen() {
             <Text style={[styles.actionText, { color: theme.textMuted }]}>Cambiar Sede</Text>
           </AnimatedButton>
 
+          <AnimatedButton style={[styles.actionBtn, { backgroundColor: theme.card, borderColor: theme.border }]} onPress={() => setModalAjustesVisible(true)}>
+            <Settings color={theme.text} size={20} />
+            <Text style={[styles.actionText, { color: theme.text }]}>Ajustes & Tema</Text>
+          </AnimatedButton>
+
           <AnimatedButton style={[styles.actionBtn, { backgroundColor: theme.dangerLight, borderColor: theme.dangerLight }]} onPress={cerrarSesionTotal}>
             <LogOut color={theme.danger} size={20} />
             <Text style={[styles.actionText, { color: theme.danger }]}>Cerrar Sesión</Text>
           </AnimatedButton>
         </View>
       </ScrollView>
+
+      {/* Modal de Ajustes & Selector de Tema */}
+      <ModalAjustes
+        visible={modalAjustesVisible}
+        onClose={() => setModalAjustesVisible(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -872,6 +895,11 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   scroll: { padding: 20, paddingBottom: 40 },
   header: { marginBottom: 30, marginTop: 10 },
+  settingsTopBtn: {
+    padding: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
   locationBadge: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 },
   locationText: { fontFamily: fonts.semiBold, marginLeft: 6, fontSize: 14 },
   roleBadgeSmall: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20 },
