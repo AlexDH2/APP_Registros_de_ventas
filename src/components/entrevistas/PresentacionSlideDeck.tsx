@@ -344,7 +344,7 @@ export default function PresentacionSlideDeck({ onIrAHorarios }: Props) {
 
               <View style={styles.sedeItem}>
                 <Text style={styles.sedeName}>4. Elvira García y García</Text>
-                <Text style={styles.sedeBadge}>Campo Tarde (LMV / MJ 18:15 - 21:15)</Text>
+                <Text style={styles.sedeBadge}>Vóley & Básquet (LMV / MJ 18:15 - 21:15 • 4 turnos)</Text>
               </View>
 
               <View style={styles.sedeItem}>

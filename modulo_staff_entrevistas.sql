@@ -105,23 +105,25 @@ VALUES
   -- Santísima Trinidad
   ('st-1', 'Santísima Trinidad', 'Campo Tarde', 'MJ', '["MAR", "JUE"]'::jsonb, 'Mar, Jue', '18:00 - 21:00', 1080, 1260, 3.0, 2, 6.0, 13),
 
-  -- Elvira García y García
-  ('eg-1', 'Elvira García y García', 'Campo Tarde', 'LMV', '["LUN", "MIE", "VIE"]'::jsonb, 'Lun, Mié, Vie', '18:15 - 21:15', 1095, 1275, 3.0, 3, 9.0, 14),
-  ('eg-2', 'Elvira García y García', 'Campo Tarde', 'MJ', '["MAR", "JUE"]'::jsonb, 'Mar, Jue', '18:15 - 21:15', 1095, 1275, 3.0, 2, 6.0, 15),
+  -- Elvira García y García (4 turnos: 2 de Vóley y 2 de Básquet)
+  ('eg-v1', 'Elvira García y García', 'Vóley (Campo Tarde)', 'LMV', '["LUN", "MIE", "VIE"]'::jsonb, 'Lun, Mié, Vie', '18:15 - 21:15', 1095, 1275, 3.0, 3, 9.0, 14),
+  ('eg-v2', 'Elvira García y García', 'Vóley (Campo Tarde)', 'MJ', '["MAR", "JUE"]'::jsonb, 'Mar, Jue', '18:15 - 21:15', 1095, 1275, 3.0, 2, 6.0, 15),
+  ('eg-b1', 'Elvira García y García', 'Básquet (Campo Tarde)', 'LMV', '["LUN", "MIE", "VIE"]'::jsonb, 'Lun, Mié, Vie', '18:15 - 21:15', 1095, 1275, 3.0, 3, 9.0, 16),
+  ('eg-b2', 'Elvira García y García', 'Básquet (Campo Tarde)', 'MJ', '["MAR", "JUE"]'::jsonb, 'Mar, Jue', '18:15 - 21:15', 1095, 1275, 3.0, 2, 6.0, 17),
 
   -- Libertador
-  ('lib-1', 'Libertador', 'Campo Tarde', 'LMV', '["LUN", "MIE", "VIE"]'::jsonb, 'Lun, Mié, Vie', '16:30 - 20:00', 990, 1200, 3.5, 3, 10.5, 16),
-  ('lib-2', 'Libertador', 'Patio Tarde', 'MV', '["MAR", "VIE"]'::jsonb, 'Mar, Vie', '16:30 - 20:00', 990, 1200, 3.5, 2, 7.0, 17),
-  ('lib-3', 'Libertador', 'Patio Tarde', 'LUN', '["LUN"]'::jsonb, 'Lun', '16:30 - 20:00', 990, 1200, 3.5, 1, 3.5, 18),
-  ('lib-4', 'Libertador', 'Campo Tarde', 'MJ', '["MAR", "JUE"]'::jsonb, 'Mar, Jue', '16:30 - 20:00', 990, 1200, 3.5, 2, 7.0, 19),
-  ('lib-5', 'Libertador', 'Patio Tarde', 'MJ', '["MAR", "JUE"]'::jsonb, 'Mar, Jue', '17:00 - 20:00', 1020, 1200, 3.0, 2, 6.0, 20),
+  ('lib-1', 'Libertador', 'Campo Tarde', 'LMV', '["LUN", "MIE", "VIE"]'::jsonb, 'Lun, Mié, Vie', '16:30 - 20:00', 990, 1200, 3.5, 3, 10.5, 18),
+  ('lib-2', 'Libertador', 'Patio Tarde', 'MV', '["MAR", "VIE"]'::jsonb, 'Mar, Vie', '16:30 - 20:00', 990, 1200, 3.5, 2, 7.0, 19),
+  ('lib-3', 'Libertador', 'Patio Tarde', 'LUN', '["LUN"]'::jsonb, 'Lun', '16:30 - 20:00', 990, 1200, 3.5, 1, 3.5, 20),
+  ('lib-4', 'Libertador', 'Campo Tarde', 'MJ', '["MAR", "JUE"]'::jsonb, 'Mar, Jue', '16:30 - 20:00', 990, 1200, 3.5, 2, 7.0, 21),
+  ('lib-5', 'Libertador', 'Patio Tarde', 'MJ', '["MAR", "JUE"]'::jsonb, 'Mar, Jue', '17:00 - 20:00', 1020, 1200, 3.0, 2, 6.0, 22),
 
   -- Buenas Nuevas
-  ('bn-1', 'Buenas Nuevas', 'Campo Tarde', 'LMV', '["LUN", "MIE", "VIE"]'::jsonb, 'Lun, Mié, Vie', '16:30 - 20:00', 990, 1200, 3.5, 3, 10.5, 21),
+  ('bn-1', 'Buenas Nuevas', 'Campo Tarde', 'LMV', '["LUN", "MIE", "VIE"]'::jsonb, 'Lun, Mié, Vie', '16:30 - 20:00', 990, 1200, 3.5, 3, 10.5, 23),
 
   -- Fátima
-  ('fat-1', 'Fátima', 'Campo Tarde', 'LMV', '["LUN", "MIE", "VIE"]'::jsonb, 'Lun, Mié, Vie', '16:30 - 20:00', 990, 1200, 3.5, 3, 10.5, 22),
-  ('fat-2', 'Fátima', 'Patio Tarde', 'MV', '["MAR", "VIE"]'::jsonb, 'Mar, Vie', '16:30 - 20:00', 990, 1200, 3.5, 2, 7.0, 23)
+  ('fat-1', 'Fátima', 'Campo Tarde', 'LMV', '["LUN", "MIE", "VIE"]'::jsonb, 'Lun, Mié, Vie', '16:30 - 20:00', 990, 1200, 3.5, 3, 10.5, 24),
+  ('fat-2', 'Fátima', 'Patio Tarde', 'MV', '["MAR", "VIE"]'::jsonb, 'Mar, Vie', '16:30 - 20:00', 990, 1200, 3.5, 2, 7.0, 25)
 ON CONFLICT (id) DO UPDATE SET
   sede = EXCLUDED.sede,
   espacio = EXCLUDED.espacio,
