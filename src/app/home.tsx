@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator, Touchable
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ShoppingCart, Package, LogOut, MapPin, Truck, AlertTriangle, BarChart2, WifiOff, Droplets, Zap, RefreshCw, Clock, Ticket, X, Presentation, Settings } from 'lucide-react-native';
+import { ShoppingCart, Package, LogOut, MapPin, Truck, AlertTriangle, BarChart2, WifiOff, Droplets, Zap, RefreshCw, Clock, Ticket, X, Presentation, Settings, Boxes } from 'lucide-react-native';
 import { supabase } from '../lib/supabase';
 import { getOfflineSales, syncOfflineSales, saveOfflineSale } from '../lib/offlineSync';
 import { fonts } from '../theme';
@@ -804,6 +804,27 @@ export default function HomeScreen() {
               </View>
               <Text style={[dynamicStyles.cardSubtitle, { color: '#b45309' }]}>
                 Pitch interactivo, turnos sin cruces y postulantes
+              </Text>
+            </View>
+          </AnimatedButton>
+
+          {/* Módulo de Inventario de Materiales & Indumentaria por Sede */}
+          <AnimatedButton
+            style={[dynamicStyles.rowCard, { borderColor: '#bbf7d0', backgroundColor: isDark ? '#064e3b22' : '#f0fdf4', marginBottom: 12 }]}
+            onPress={() => router.push('/inventario_materiales')}
+          >
+            <View style={[dynamicStyles.iconWrapperRow, { backgroundColor: isDark ? '#064e3b55' : '#dcfce7' }]}>
+              <Boxes color="#10b981" size={24} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={[dynamicStyles.cardTitle, { color: isDark ? '#6ee7b7' : '#166534' }]}>Inventario de Materiales</Text>
+                <View style={{ backgroundColor: '#10b981', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                  <Text style={{ color: 'white', fontSize: 10, fontFamily: fonts.bold }}>SEDES</Text>
+                </View>
+              </View>
+              <Text style={[dynamicStyles.cardSubtitle, { color: isDark ? '#a7f3d0' : '#15803d' }]}>
+                Conos, aros, pelotas e indumentaria por tallas
               </Text>
             </View>
           </AnimatedButton>

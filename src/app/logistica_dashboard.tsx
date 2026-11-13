@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../lib/supabase';
-import { Building2, Inbox, TrendingUp, Truck, LogOut, PackageCheck, AlertCircle, RefreshCw } from 'lucide-react-native';
+import { Building2, Inbox, TrendingUp, Truck, LogOut, PackageCheck, AlertCircle, RefreshCw, Boxes } from 'lucide-react-native';
 import { colors, fonts } from '../theme';
 import AnimatedButton from '../components/AnimatedButton';
 import { confirmAndLogout } from '../lib/auth';
@@ -199,6 +199,22 @@ export default function LogisticaDashboardScreen() {
             <Text style={styles.actionSubtitle}>Despachar fardos/cajas con foto</Text>
           </AnimatedButton>
         </View>
+
+        {/* Inventario de Materiales & Indumentaria por Sede */}
+        <AnimatedButton
+          style={[styles.rowActionCard, { backgroundColor: '#064e3b', borderColor: '#10b981', borderWidth: 1.5, marginBottom: 12 }]}
+          onPress={() => router.push('/inventario_materiales')}
+        >
+          <View style={[styles.rowIconBox, { backgroundColor: '#10b981' }]}>
+            <Boxes color="#ffffff" size={24} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.rowTitle, { color: '#ffffff' }]}>Inventario de Materiales & Tallas</Text>
+            <Text style={[styles.rowSubtitle, { color: '#a7f3d0' }]}>
+              Control mensual de conos, aros, varillas y uniformes por sede
+            </Text>
+          </View>
+        </AnimatedButton>
 
         {/* Historial de Entregas */}
         <AnimatedButton

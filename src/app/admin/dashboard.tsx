@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { supabase } from '../../lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { LogOut, Users, MapPin, DollarSign, TrendingUp, AlertTriangle, Truck, Building2, Inbox, Tag, Download, Ticket, Plus, X, Presentation, Settings } from 'lucide-react-native';
+import { LogOut, Users, MapPin, DollarSign, TrendingUp, AlertTriangle, Truck, Building2, Inbox, Tag, Download, Ticket, Plus, X, Presentation, Settings, Boxes } from 'lucide-react-native';
 import { confirmAndLogout } from '../../lib/auth';
 import { useAppTheme } from '../../context/ThemeContext';
 import ModalAjustes from '../../components/ModalAjustes';
@@ -203,7 +203,7 @@ export default function AdminDashboard() {
 
         {/* Acceso Directo: Entrevistas & Selección de Staff Deportivo */}
         <TouchableOpacity 
-          style={[styles.reportBanner, { backgroundColor: '#0f172a', borderColor: '#f59e0b', borderWidth: 1.5, shadowColor: '#f59e0b', marginBottom: 26 }]} 
+          style={[styles.reportBanner, { backgroundColor: '#0f172a', borderColor: '#f59e0b', borderWidth: 1.5, shadowColor: '#f59e0b', marginBottom: 12 }]} 
           onPress={() => router.push('/entrevistas')}
           activeOpacity={0.85}
         >
@@ -214,11 +214,32 @@ export default function AdminDashboard() {
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={[styles.reportBannerTitle, { color: '#ffffff' }]}>Entrevistas & Staff Deportivo</Text>
               <View style={{ backgroundColor: '#f59e0b', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
-                <Text style={{ color: '#0d1b2a', fontSize: 10, fontWeight: '800' }}>NUEVO</Text>
+                <Text style={{ color: '#0d1b2a', fontSize: 10, fontWeight: '800' }}>STAFF</Text>
               </View>
             </View>
             <Text style={[styles.reportBannerSub, { color: '#94a3b8' }]}>
               Pitch interactivo, asignador de turnos anti-cruces y postulantes
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.reportBanner, { backgroundColor: '#064e3b', borderColor: '#10b981', borderWidth: 1.5, shadowColor: '#10b981', marginBottom: 26 }]} 
+          onPress={() => router.push('/inventario_materiales')}
+          activeOpacity={0.85}
+        >
+          <View style={[styles.reportIconBox, { backgroundColor: '#10b981' }]}>
+            <Boxes color="#ffffff" size={26} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={[styles.reportBannerTitle, { color: '#ffffff' }]}>Inventario de Materiales & Tallas</Text>
+              <View style={{ backgroundColor: '#10b981', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 }}>
+                <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '800' }}>SEDES</Text>
+              </View>
+            </View>
+            <Text style={[styles.reportBannerSub, { color: '#a7f3d0' }]}>
+              Control mensual de conos, aros, balones y uniformes por sede
             </Text>
           </View>
         </TouchableOpacity>
