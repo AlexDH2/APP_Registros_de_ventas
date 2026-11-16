@@ -277,7 +277,7 @@
     // CONFIGURACIÓN SUPABASE
     const SUPABASE_URL = 'https://fqhspcbxtggckuurdbtc.supabase.co';
     const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxaHNwY2J4dGdnY2t1dXJkYnRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NzY5ODUsImV4cCI6MjEwNzE1Mjk4NX0.9Nn8Zr47DbT6LwN13CjwHnEcSGu2CWvX0tAtxboKDMY';
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
     // ESTADO
     let eventoActual = null;
@@ -289,7 +289,7 @@
     // INICIALIZACIÓN
     async function init() {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await db
           .from('eventos')
           .select('*')
           .eq('estado', 'ACTIVO')
@@ -462,7 +462,7 @@
       }));
 
       try {
-        const { data, error } = await supabase.rpc('crear_preregistro_entrada', {
+        const { data, error } = await db.rpc('crear_preregistro_entrada', {
           p_evento_id: eventoId,
           p_nombre_titular: nombreTitular,
           p_dni_titular: dniTitular,
