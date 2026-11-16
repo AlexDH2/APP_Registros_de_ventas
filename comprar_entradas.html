@@ -74,6 +74,7 @@
                 id="nombre-titular" 
                 required 
                 placeholder="Ej. Juan Carlos Pérez Rojas" 
+                oninput="if(cantidad >= 2) renderAsistentes()"
                 class="w-full text-sm px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-800 placeholder-slate-400 font-medium transition"
               >
             </div>
@@ -90,6 +91,7 @@
                   maxlength="10" 
                   pattern="[0-9]{8,10}"
                   placeholder="8 dígitos" 
+                  oninput="if(cantidad >= 2) renderAsistentes()"
                   class="w-full text-sm px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-800 placeholder-slate-400 font-medium transition"
                 >
               </div>
@@ -146,23 +148,23 @@
           </div>
         </div>
 
-        <!-- PASO 3: ASISTENTES DINÁMICOS -->
-        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+        <!-- PASO 3: ASISTENTES DINÁMICOS (Solo visible si cantidad >= 2) -->
+        <div id="seccion-asistentes" class="hidden bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-2.5">
               <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">3</span>
-              <h2 id="titulo-asistentes" class="text-sm font-bold text-slate-900">Datos del Asistente</h2>
+              <h2 id="titulo-asistentes" class="text-sm font-bold text-slate-900">Datos de los Acompañantes</h2>
             </div>
             <button 
               type="button" 
               id="btn-copiar-todos" 
               onclick="copiarTitularATodos()" 
-              class="hidden text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition"
+              class="text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition"
             >
               Copiar mis datos
             </button>
           </div>
-          <p class="text-[11px] text-slate-500 mb-3">Registra quién usará cada entrada para agilizar tu acceso.</p>
+          <p class="text-[11px] text-slate-500 mb-3">Tu entrada ya está registrada con tus datos del paso 1. Ingresa los datos de las personas que te acompañan.</p>
 
           <div id="lista-asistentes" class="space-y-3">
             <!-- Se genera dinámicamente con JS -->
@@ -331,8 +333,15 @@
       document.getElementById('btn-menos').disabled = cantidad <= 1;
       document.getElementById('cantidad-display').textContent = cantidad;
       document.getElementById('cantidad-sub').textContent = cantidad === 1 ? 'entrada' : 'entradas';
-      document.getElementById('btn-copiar-todos').classList.toggle('hidden', cantidad <= 1);
-      document.getElementById('titulo-asistentes').textContent = cantidad === 1 ? 'Datos del Asistente' : `Datos de los Asistentes (${cantidad})`;
+
+      // El paso 3 SOLO se muestra a partir de 2 entradas
+      const seccionAsistentes = document.getElementById('seccion-asistentes');
+      if (cantidad <= 1) {
+        seccionAsistentes.classList.add('hidden');
+      } else {
+        seccionAsistentes.classList.remove('hidden');
+        document.getElementById('titulo-asistentes').textContent = `Datos de los Acompañantes (${cantidad - 1})`;
+      }
 
       renderAsistentes();
       actualizarTotales();
@@ -348,9 +357,34 @@
       const contenedor = document.getElementById('lista-asistentes');
       contenedor.innerHTML = '';
 
-      for (let i = 0; i < cantidad; i++) {
+      // Si es solo 1 entrada, no se renderizan campos del punto 3
+      if (cantidad <= 1) return;
+
+      const nombreTitular = document.getElementById('nombre-titular').value.trim();
+      const dniTitular = document.getElementById('dni-titular').value.trim();
+
+      // Tarjeta informativa para Entrada #1 (Titular)
+      const tarjetaTitular = document.createElement('div');
+      tarjetaTitular.className = 'bg-blue-50/70 p-3 rounded-xl border border-blue-200 text-xs flex items-center justify-between';
+      tarjetaTitular.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-1 font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md">
+            🎟️ Entrada #1
+          </span>
+          <div>
+            <p class="font-bold text-slate-800">${nombreTitular || 'Comprador (Titular)'}</p>
+            <p class="text-[11px] text-slate-500">${dniTitular ? 'DNI: ' + dniTitular : 'Datos del paso 1'}</p>
+          </div>
+        </div>
+        <span class="text-[10px] font-bold text-blue-600 uppercase bg-white px-2 py-1 rounded-md border border-blue-200">
+          Titular
+        </span>
+      `;
+      contenedor.appendChild(tarjetaTitular);
+
+      // Renderizar campos únicamente a partir del asistente #2 en adelante
+      for (let i = 1; i < cantidad; i++) {
         const item = asistentes[i] || { nombre: '', dni: '' };
-        const esPrimero = i === 0;
 
         const card = document.createElement('div');
         card.className = 'bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-2';
@@ -360,19 +394,15 @@
             <span class="inline-flex items-center gap-1 font-bold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md">
               🎟️ Entrada #${i + 1}
             </span>
-            ${esPrimero ? `
-              <button type="button" onclick="usarMisDatosPrimerAsistente()" class="text-[11px] font-semibold text-blue-600 bg-white border border-blue-200 px-2 py-0.5 rounded-md hover:bg-blue-50">
-                Soy yo (usar mis datos)
-              </button>
-            ` : ''}
+            <span class="text-[11px] text-slate-500 font-medium">Acompañante ${i}</span>
           </div>
           <div>
-            <label class="block text-[11px] font-medium text-slate-600 mb-0.5">Nombres y Apellidos</label>
+            <label class="block text-[11px] font-medium text-slate-600 mb-0.5">Nombres y Apellidos <span class="text-rose-500">*</span></label>
             <input 
               type="text" 
               required
               value="${item.nombre || ''}" 
-              placeholder="Asistente #${i + 1}"
+              placeholder="Nombre del Acompañante ${i}"
               oninput="actualizarAsistente(${i}, 'nombre', this.value)"
               class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
             >
@@ -383,7 +413,7 @@
               type="tel" 
               maxlength="10"
               value="${item.dni || ''}" 
-              placeholder="DNI del asistente"
+              placeholder="DNI del acompañante"
               oninput="actualizarAsistente(${i}, 'dni', this.value)"
               class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
             >
@@ -398,32 +428,18 @@
       asistentes[idx][campo] = valor;
     }
 
-    function usarMisDatosPrimerAsistente() {
-      const nombre = document.getElementById('nombre-titular').value.trim();
-      const dni = document.getElementById('dni-titular').value.trim();
-      if (!nombre && !dni) {
-        alert('Ingresa primero tus datos en el paso 1.');
-        return;
-      }
-      actualizarAsistente(0, 'nombre', nombre);
-      actualizarAsistente(0, 'dni', dni);
-      renderAsistentes();
-    }
-
     function copiarTitularATodos() {
       const nombre = document.getElementById('nombre-titular').value.trim();
       const dni = document.getElementById('dni-titular').value.trim();
       if (!nombre) {
-        alert('Ingresa primero tu nombre en el paso 1.');
+        alert('Ingresa primero tus datos en el paso 1.');
         return;
       }
-      asistentes = asistentes.map((item, idx) => {
-        if (idx === 0) return { nombre: nombre, dni: dni };
-        return {
-          nombre: `${nombre} (Acompañante ${idx + 1})`,
-          dni: dni
-        };
-      });
+      for (let i = 1; i < cantidad; i++) {
+        if (!asistentes[i]) asistentes[i] = { nombre: '', dni: '' };
+        asistentes[i].nombre = `${nombre} (Acompañante ${i})`;
+        asistentes[i].dni = dni;
+      }
       renderAsistentes();
     }
 
@@ -439,12 +455,31 @@
         return;
       }
 
-      // Validar asistentes
-      for (let i = 0; i < cantidad; i++) {
-        if (!asistentes[i] || !asistentes[i].nombre.trim()) {
-          alert(`Por favor ingresa el nombre de la persona para la Entrada #${i + 1}.`);
-          return;
+      // Preparar y validar lista de asistentes
+      let asistentesFormato = [];
+      if (cantidad === 1) {
+        // En caso de 1 sola entrada, el asistente es automáticamente el comprador titular
+        asistentesFormato = [{
+          ticket: 1,
+          nombre: nombreTitular,
+          dni: dniTitular,
+        }];
+      } else {
+        // En caso de 2 o más entradas, validar que los acompañantes tengan nombre
+        for (let i = 1; i < cantidad; i++) {
+          if (!asistentes[i] || !asistentes[i].nombre.trim()) {
+            alert(`Por favor ingresa el nombre de la persona para la Entrada #${i + 1}.`);
+            return;
+          }
         }
+        asistentesFormato = [
+          { ticket: 1, nombre: nombreTitular, dni: dniTitular },
+          ...asistentes.slice(1, cantidad).map((a, idx) => ({
+            ticket: idx + 2,
+            nombre: a.nombre.trim(),
+            dni: (a.dni || dniTitular).trim(),
+          }))
+        ];
       }
 
       btn.disabled = true;
@@ -455,11 +490,6 @@
 
       const eventoId = eventoActual ? eventoActual.id : 1;
       const montoTotal = Number((cantidad * precioUnitario).toFixed(2));
-      const asistentesFormato = asistentes.map((a, idx) => ({
-        ticket: idx + 1,
-        nombre: a.nombre.trim(),
-        dni: (a.dni || dniTitular).trim(),
-      }));
 
       try {
         const { data, error } = await db.rpc('crear_preregistro_entrada', {
@@ -523,7 +553,7 @@
       document.getElementById('btn-menos').disabled = true;
       document.getElementById('cantidad-display').textContent = '1';
       document.getElementById('cantidad-sub').textContent = 'entrada';
-      document.getElementById('btn-copiar-todos').classList.add('hidden');
+      document.getElementById('seccion-asistentes').classList.add('hidden');
       renderAsistentes();
       actualizarTotales();
 

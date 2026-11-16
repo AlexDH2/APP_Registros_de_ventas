@@ -167,23 +167,34 @@ export default function ComprarEntradasScreen() {
       return;
     }
 
-    // Validar asistentes
-    for (let i = 0; i < cantidad; i++) {
-      const a = asistentes[i];
-      if (!a || !a.nombre?.trim()) {
-        Alert.alert(
-          'Faltan datos de asistente',
-          `Por favor ingresa el nombre de la persona para la Entrada #${i + 1}.`
-        );
-        return;
+    // Validar asistentes (solo requeridos para acompañantes si cantidad >= 2)
+    let asistentesLimpio: AsistenteTicket[] = [];
+    if (cantidad === 1) {
+      asistentesLimpio = [{
+        ticket: 1,
+        nombre: nombreTitular.trim(),
+        dni: dniTitular.trim(),
+      }];
+    } else {
+      for (let i = 1; i < cantidad; i++) {
+        const a = asistentes[i];
+        if (!a || !a.nombre?.trim()) {
+          Alert.alert(
+            'Faltan datos de acompañante',
+            `Por favor ingresa el nombre de la persona para la Entrada #${i + 1}.`
+          );
+          return;
+        }
       }
+      asistentesLimpio = [
+        { ticket: 1, nombre: nombreTitular.trim(), dni: dniTitular.trim() },
+        ...asistentes.slice(1, cantidad).map((a, idx) => ({
+          ticket: idx + 2,
+          nombre: a.nombre.trim(),
+          dni: (a.dni || dniTitular).trim(),
+        })),
+      ];
     }
-
-    const asistentesLimpio: AsistenteTicket[] = Array.from({ length: cantidad }).map((_, idx) => ({
-      ticket: idx + 1,
-      nombre: (asistentes[idx]?.nombre || '').trim(),
-      dni: (asistentes[idx]?.dni || dniTitular).trim(),
-    }));
 
     try {
       setEnviando(true);
@@ -480,83 +491,98 @@ export default function ComprarEntradasScreen() {
           </View>
         </View>
 
-        {/* PASO 3: Asistentes por Entrada (Dinámico) */}
-        <View style={styles.card}>
-          <View style={styles.cardHeaderBetween}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <View style={styles.stepBadge}>
-                <Text style={styles.stepBadgeText}>3</Text>
+        {/* PASO 3: Asistentes por Entrada (Solo visible si cantidad >= 2) */}
+        {cantidad >= 2 && (
+          <View style={styles.card}>
+            <View style={styles.cardHeaderBetween}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.stepBadge}>
+                  <Text style={styles.stepBadgeText}>3</Text>
+                </View>
+                <Text style={styles.cardTitle}>
+                  Datos de los Acompañantes ({cantidad - 1})
+                </Text>
               </View>
-              <Text style={styles.cardTitle}>
-                {cantidad === 1 ? 'Datos del Asistente' : `Datos de los Asistentes (${cantidad})`}
-              </Text>
-            </View>
 
-            {cantidad > 1 && (
               <TouchableOpacity style={styles.copiarTodosBtn} onPress={handleCopiarTitularATodos}>
                 <Copy size={13} color="#2563eb" />
                 <Text style={styles.copiarTodosText}>Copiar mis datos</Text>
               </TouchableOpacity>
-            )}
-          </View>
+            </View>
 
-          <Text style={styles.cardSubtitle}>
-            Indica quién usará cada entrada para acelerar el control en la puerta.
-          </Text>
+            <Text style={styles.cardSubtitle}>
+              Tu entrada ya está registrada con tus datos del paso 1. Ingresa los datos de las personas que te acompañan.
+            </Text>
 
-          <View style={styles.asistentesList}>
-            {Array.from({ length: cantidad }).map((_, idx) => {
-              const a = asistentes[idx] || { nombre: '', dni: '' };
-              const esPrimero = idx === 0;
+            <View style={styles.asistentesList}>
+              {/* Tarjeta Informativa Entrada #1 (Titular) */}
+              <View style={[styles.asistenteCard, { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' }]}>
+                <View style={styles.asistenteCardHeader}>
+                  <View style={styles.ticketBadge}>
+                    <Ticket size={13} color="#2563eb" />
+                    <Text style={styles.ticketBadgeText}>Entrada #1 (Titular)</Text>
+                  </View>
+                  <Text style={{ fontSize: 11, fontFamily: fonts.semiBold, color: '#2563eb' }}>
+                    Comprador
+                  </Text>
+                </View>
+                <Text style={{ fontSize: 13, fontFamily: fonts.bold, color: '#1e3a8a' }}>
+                  {nombreTitular || 'Nombre del Titular'}
+                </Text>
+                <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: '#64748b' }}>
+                  {dniTitular ? `DNI: ${dniTitular}` : 'Datos del paso 1'}
+                </Text>
+              </View>
 
-              return (
-                <View key={`asistente-${idx}`} style={styles.asistenteCard}>
-                  <View style={styles.asistenteCardHeader}>
-                    <View style={styles.ticketBadge}>
-                      <Ticket size={13} color="#2563eb" />
-                      <Text style={styles.ticketBadgeText}>Entrada #{idx + 1}</Text>
+              {/* Acompañantes a partir de la Entrada #2 */}
+              {Array.from({ length: cantidad - 1 }).map((_, i) => {
+                const idx = i + 1;
+                const a = asistentes[idx] || { nombre: '', dni: '' };
+
+                return (
+                  <View key={`asistente-${idx}`} style={styles.asistenteCard}>
+                    <View style={styles.asistenteCardHeader}>
+                      <View style={styles.ticketBadge}>
+                        <Ticket size={13} color="#2563eb" />
+                        <Text style={styles.ticketBadgeText}>Entrada #{idx + 1}</Text>
+                      </View>
+                      <Text style={{ fontSize: 11, fontFamily: fonts.medium, color: '#64748b' }}>
+                        Acompañante {idx}
+                      </Text>
                     </View>
 
-                    {esPrimero && (
-                      <TouchableOpacity
-                        style={styles.btnUsarMisDatos}
-                        onPress={handleAutofillTitularAsistente1}
-                      >
-                        <User size={12} color="#2563eb" />
-                        <Text style={styles.btnUsarMisDatosText}>Soy yo (usar mis datos)</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabelSm}>
+                        Nombres y Apellidos <Text style={styles.required}>*</Text>
+                      </Text>
+                      <TextInput
+                        style={styles.textInputSm}
+                        placeholder={`Nombre del Acompañante ${idx}`}
+                        placeholderTextColor="#94a3b8"
+                        value={a.nombre}
+                        onChangeText={(val) => handleUpdateAsistente(idx, 'nombre', val)}
+                        autoCapitalize="words"
+                      />
+                    </View>
 
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabelSm}>Nombre y Apellidos</Text>
-                    <TextInput
-                      style={styles.textInputSm}
-                      placeholder={`Nombre del Asistente #${idx + 1}`}
-                      placeholderTextColor="#94a3b8"
-                      value={a.nombre}
-                      onChangeText={(val) => handleUpdateAsistente(idx, 'nombre', val)}
-                      autoCapitalize="words"
-                    />
+                    <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabelSm}>DNI (opcional para menores)</Text>
+                      <TextInput
+                        style={styles.textInputSm}
+                        placeholder="DNI del acompañante"
+                        placeholderTextColor="#94a3b8"
+                        keyboardType="numeric"
+                        maxLength={10}
+                        value={a.dni}
+                        onChangeText={(val) => handleUpdateAsistente(idx, 'dni', val)}
+                      />
+                    </View>
                   </View>
-
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabelSm}>DNI (opcional para menores)</Text>
-                    <TextInput
-                      style={styles.textInputSm}
-                      placeholder="DNI del asistente"
-                      placeholderTextColor="#94a3b8"
-                      keyboardType="numeric"
-                      maxLength={10}
-                      value={a.dni}
-                      onChangeText={(val) => handleUpdateAsistente(idx, 'dni', val)}
-                    />
-                  </View>
-                </View>
-              );
-            })}
+                );
+              })}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Botón de Enviar Pre-Registro */}
         <TouchableOpacity
