@@ -7,6 +7,9 @@ import {
   MetricasVentas,
   DatosEmisionEntrada,
   ResultadoEmision,
+  PreRegistroEntrada,
+  DatosCrearPreRegistro,
+  ResultadoPreRegistro,
 } from '../types/entradas';
 
 /**
@@ -185,7 +188,22 @@ export async function emitirVentaEntradas(
     throw new Error(error.message || 'Error al procesar la venta en la base de datos.');
   }
 
-  return data as ResultadoEmision;
+  const resultado = data as ResultadoEmision;
+
+  // Si esta venta proviene de un pre-registro web, marcarlo automáticamente como COBRADO
+  if (params.preRegistroCodigo && resultado.venta_id) {
+    try {
+      await marcarPreRegistroCobrado(
+        params.preRegistroCodigo,
+        resultado.venta_id,
+        params.colaboradorNombre || 'Colaborador'
+      );
+    } catch (e) {
+      console.warn('No se pudo marcar pre-registro como cobrado:', e);
+    }
+  }
+
+  return resultado;
 }
 
 /**
@@ -302,4 +320,120 @@ export async function anularVentaEntrada(ventaId: number, motivo: string): Promi
     console.error('Error al anular venta:', error);
     throw error;
   }
+}
+
+/**
+ * ==============================================================================
+ * SERVICIOS DE PRE-REGISTRO WEB (AUTOGESTIÓN POR QR)
+ * ==============================================================================
+ */
+
+/**
+ * Registra un nuevo pre-registro de entrada realizado por el comprador/padre desde la web.
+ * Genera un código único (ej. CCL-1001) para presentarlo en la entrada.
+ */
+export async function crearPreRegistro(
+  datos: DatosCrearPreRegistro
+): Promise<ResultadoPreRegistro> {
+  const montoTotal = Number((datos.cantidad * datos.precioUnitario).toFixed(2));
+
+  const { data, error } = await supabase.rpc('crear_preregistro_entrada', {
+    p_evento_id: datos.eventoId,
+    p_nombre_titular: datos.nombreTitular.trim(),
+    p_dni_titular: datos.dniTitular.trim(),
+    p_telefono: datos.telefono?.trim() || null,
+    p_cantidad: datos.cantidad,
+    p_precio_unitario: datos.precioUnitario,
+    p_monto_total: montoTotal,
+    p_asistentes: datos.asistentes || [],
+  });
+
+  if (error) {
+    console.error('Error al crear pre-registro:', error);
+    throw new Error(error.message || 'No se pudo generar el pre-registro.');
+  }
+
+  return data as ResultadoPreRegistro;
+}
+
+/**
+ * Busca un pre-registro por código (ej. "CCL-1001" o "1001") o por DNI del titular.
+ * Permite al personal en puerta encontrarlo en un segundo.
+ */
+export async function buscarPreRegistroPorCodigo(
+  termino: string,
+  eventoId?: number
+): Promise<PreRegistroEntrada | null> {
+  const limpio = (termino || '').trim();
+  if (!limpio) return null;
+
+  const codigoNormalizado = limpio.toUpperCase();
+  const codigoConPrefijo = codigoNormalizado.startsWith('CCL-')
+    ? codigoNormalizado
+    : `CCL-${codigoNormalizado.padStart(4, '0')}`;
+
+  let query = supabase.from('pre_registros_entradas').select('*');
+
+  if (eventoId) {
+    query = query.eq('evento_id', eventoId);
+  }
+
+  // Buscar por código exacto o con prefijo CCL-
+  const { data: porCodigo, error: errCodigo } = await query
+    .or(`codigo.eq.${codigoNormalizado},codigo.eq.${codigoConPrefijo}`)
+    .limit(1)
+    .maybeSingle();
+
+  if (porCodigo && !errCodigo) {
+    return {
+      ...porCodigo,
+      precio_unitario: Number(porCodigo.precio_unitario),
+      monto_total: Number(porCodigo.monto_total),
+    } as PreRegistroEntrada;
+  }
+
+  // Si no se encontró por código, intentar buscar por DNI
+  let dniQuery = supabase
+    .from('pre_registros_entradas')
+    .select('*')
+    .eq('dni_titular', limpio)
+    .order('id', { ascending: false });
+
+  if (eventoId) {
+    dniQuery = dniQuery.eq('evento_id', eventoId);
+  }
+
+  const { data: porDni } = await dniQuery.limit(1).maybeSingle();
+
+  if (porDni) {
+    return {
+      ...porDni,
+      precio_unitario: Number(porDni.precio_unitario),
+      monto_total: Number(porDni.monto_total),
+    } as PreRegistroEntrada;
+  }
+
+  return null;
+}
+
+/**
+ * Marca el pre-registro como cobrado cuando el personal en boletería emite los tickets.
+ */
+export async function marcarPreRegistroCobrado(
+  codigo: string,
+  ventaId: number,
+  atendidoPor: string
+): Promise<boolean> {
+  const { data, error } = await supabase.rpc('marcar_preregistro_cobrado', {
+    p_codigo: codigo,
+    p_venta_id: ventaId,
+    p_atendido_por: atendidoPor,
+  });
+
+  if (error) {
+    console.warn('Error al marcar pre-registro como cobrado:', error);
+    return false;
+  }
+
+  return !!data?.success;
 }

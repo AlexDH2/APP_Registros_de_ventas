@@ -7,16 +7,27 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  useColorScheme,
   KeyboardAvoidingView,
   Platform,
   Modal,
   TextInput,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ticket, Users, Wallet, ArrowLeft, RefreshCw, X, Settings } from 'lucide-react-native';
+import {
+  Ticket,
+  Users,
+  Wallet,
+  ArrowLeft,
+  RefreshCw,
+  X,
+  Settings,
+  QrCode,
+  Copy,
+  Check,
+} from 'lucide-react-native';
 import { fonts } from '../theme';
 import { useAppTheme } from '../context/ThemeContext';
 import ModalAjustes from '../components/ModalAjustes';
@@ -41,7 +52,7 @@ import VentaExitosaModal from '../components/entradas/VentaExitosaModal';
 import ModalVerComprobante from '../components/entradas/admin/ModalVerComprobante';
 
 export default function EntradasVentaScreen() {
-  const { theme, isDark } = useAppTheme();
+  const { theme } = useAppTheme();
   const [modalAjustesVisible, setModalAjustesVisible] = useState<boolean>(false);
 
   // Sesión y Colaborador
@@ -72,6 +83,8 @@ export default function EntradasVentaScreen() {
   const [comprobanteUrlModal, setComprobanteUrlModal] = useState<string | null>(null);
   const [modalEditarNombreVisible, setModalEditarNombreVisible] = useState<boolean>(false);
   const [nuevoNombreInput, setNuevoNombreInput] = useState<string>('');
+  const [modalQrPadres, setModalQrPadres] = useState<boolean>(false);
+  const [urlCopiada, setUrlCopiada] = useState<boolean>(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -219,6 +232,18 @@ export default function EntradasVentaScreen() {
           </TouchableOpacity>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <TouchableOpacity
+              style={[
+                styles.qrHeaderBtn,
+                { backgroundColor: theme.primaryLight, borderColor: theme.border },
+              ]}
+              onPress={() => setModalQrPadres(true)}
+              activeOpacity={0.7}
+            >
+              <QrCode size={15} color={theme.primary} />
+              <Text style={[styles.qrHeaderBtnText, { color: theme.primary }]}>QR Fila</Text>
+            </TouchableOpacity>
+
             <TouchableOpacity style={styles.refreshIconBtn} onPress={cargarDatos} disabled={loading}>
               {loading ? (
                 <ActivityIndicator size="small" color={theme.primary} />
@@ -422,6 +447,88 @@ export default function EntradasVentaScreen() {
         visible={modalAjustesVisible}
         onClose={() => setModalAjustesVisible(false)}
       />
+
+      {/* Modal QR para Padres en Fila */}
+      <Modal
+        visible={modalQrPadres}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setModalQrPadres(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalBox, { backgroundColor: theme.card, borderColor: theme.border, maxWidth: 380 }]}>
+            <View style={styles.modalTopRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <QrCode size={20} color={theme.primary} />
+                <Text style={[styles.modalTitle, { color: theme.text }]}>
+                  QR para Padres en Fila
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setModalQrPadres(false)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <X size={20} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalSub, { color: theme.textMuted, marginTop: 4, marginBottom: 12 }]}>
+              Los padres escanean este QR con su cámara para registrar sus datos y generar su código de atención:
+            </Text>
+
+            {/* Código QR grande para escanear */}
+            <View style={{ alignItems: 'center', backgroundColor: '#ffffff', padding: 16, borderRadius: 16, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 12 }}>
+              <Image
+                source={{
+                  uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(
+                    typeof window !== 'undefined' && window.location?.origin
+                      ? `${window.location.origin}/comprar`
+                      : 'https://express-kazoo-llld4t9.tmp.now/comprar'
+                  )}`,
+                }}
+                style={{ width: 220, height: 220, borderRadius: 8 }}
+                resizeMode="contain"
+              />
+              <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: '#64748b', marginTop: 8 }}>
+                Enlace directo: /comprar
+              </Text>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <TouchableOpacity
+                style={[
+                  styles.modalBtnCancel,
+                  { borderColor: theme.border, flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 },
+                ]}
+                onPress={() => {
+                  const url = typeof window !== 'undefined' && window.location?.origin
+                    ? `${window.location.origin}/comprar`
+                    : 'https://express-kazoo-llld4t9.tmp.now/comprar';
+                  if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+                    navigator.clipboard.writeText(url);
+                    setUrlCopiada(true);
+                    setTimeout(() => setUrlCopiada(false), 2000);
+                  } else {
+                    Alert.alert('Enlace Web', url);
+                  }
+                }}
+              >
+                {urlCopiada ? <Check size={14} color="#16a34a" /> : <Copy size={14} color={theme.text} />}
+                <Text style={[styles.modalBtnCancelText, { color: urlCopiada ? '#16a34a' : theme.text }]}>
+                  {urlCopiada ? '¡Copiado!' : 'Copiar Link'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalBtnConfirm, { backgroundColor: theme.primary, flex: 1 }]}
+                onPress={() => setModalQrPadres(false)}
+              >
+                <Text style={styles.modalBtnConfirmText}>Cerrar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -457,6 +564,19 @@ const styles = StyleSheet.create({
   },
   refreshIconBtn: {
     padding: 8,
+  },
+  qrHeaderBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  qrHeaderBtnText: {
+    fontSize: 11,
+    fontFamily: fonts.semiBold,
   },
   tabsRow: {
     flexDirection: 'row',

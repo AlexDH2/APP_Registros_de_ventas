@@ -47,6 +47,7 @@ function NavigationStack() {
         <Stack.Screen name="admin/logistics_history" options={{ title: 'Historial de Entregas' }} />
         <Stack.Screen name="admin/ventas_sedes" options={{ title: 'Reporte de Ventas por Sede' }} />
         <Stack.Screen name="entradas_venta" options={{ title: 'Boletería de Entradas', headerShown: false }} />
+        <Stack.Screen name="comprar" options={{ title: 'Pre-Registro de Entradas', headerShown: false }} />
         <Stack.Screen name="admin/eventos_entradas" options={{ title: 'Control de Evento & Entradas', headerShown: false }} />
         <Stack.Screen name="entrevistas" options={{ title: 'Entrevistas & Staff', headerShown: false }} />
       </Stack>

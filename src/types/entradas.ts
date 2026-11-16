@@ -75,6 +75,7 @@ export interface DatosEmisionEntrada {
   colaboradorId?: number | null;
   colaboradorNombre: string;
   notas?: string;
+  preRegistroCodigo?: string;
 }
 
 export interface ResultadoEmision {
@@ -90,4 +91,40 @@ export interface ResultadoEmision {
   nombre_completo?: string;
   dni?: string;
   asistentes?: AsistenteTicket[];
+}
+
+export interface PreRegistroEntrada {
+  id: number;
+  codigo: string;
+  evento_id: number;
+  nombre_titular: string;
+  dni_titular: string;
+  telefono?: string | null;
+  cantidad: number;
+  precio_unitario: number;
+  monto_total: number;
+  asistentes: AsistenteTicket[];
+  estado: 'PENDIENTE' | 'COBRADO' | 'CANCELADO';
+  venta_id?: number | null;
+  atendido_por?: string | null;
+  fecha_cobro?: string | null;
+  created_at: string;
+}
+
+export interface DatosCrearPreRegistro {
+  eventoId: number;
+  nombreTitular: string;
+  dniTitular: string;
+  telefono?: string;
+  cantidad: number;
+  precioUnitario: number;
+  asistentes: AsistenteTicket[];
+}
+
+export interface ResultadoPreRegistro {
+  success: boolean;
+  id: number;
+  codigo: string;
+  cantidad: number;
+  monto_total: number;
 }

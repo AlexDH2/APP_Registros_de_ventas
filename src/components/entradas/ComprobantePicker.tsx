@@ -37,9 +37,8 @@ export default function ComprobantePicker({
 
       const result = await ImagePicker.launchCameraAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.5,
+        allowsEditing: false,
+        quality: 0.6,
         base64: true,
       });
 
@@ -65,9 +64,8 @@ export default function ComprobantePicker({
 
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 0.5,
+        allowsEditing: false,
+        quality: 0.6,
         base64: true,
       });
 

@@ -20,11 +20,22 @@ import {
   DollarSign,
   Ticket,
   Copy,
+  QrCode,
+  Search,
+  Sparkles,
+  RotateCcw,
 } from 'lucide-react-native';
-import { Evento, MetodoPagoEntrada, DatosEmisionEntrada, AsistenteTicket } from '../../types/entradas';
+import {
+  Evento,
+  MetodoPagoEntrada,
+  DatosEmisionEntrada,
+  AsistenteTicket,
+  PreRegistroEntrada,
+} from '../../types/entradas';
 import { fonts } from '../../theme';
 import AnimatedButton from '../AnimatedButton';
 import ComprobantePicker from './ComprobantePicker';
+import { buscarPreRegistroPorCodigo } from '../../lib/entradasService';
 
 interface BoleteriaFormProps {
   evento: Evento;
@@ -49,6 +60,11 @@ export default function BoleteriaForm({
   const [montoRecibido, setMontoRecibido] = useState<string>('');
   const [image, setImage] = useState<ImagePickerAsset | null>(null);
 
+  // Pre-registro Web de Entradas
+  const [codigoBusqueda, setCodigoBusqueda] = useState<string>('');
+  const [buscandoCodigo, setBuscandoCodigo] = useState<boolean>(false);
+  const [preRegistroCargado, setPreRegistroCargado] = useState<PreRegistroEntrada | null>(null);
+
   // El precio unitario proviene DIRECTAMENTE de la base de datos (evento.precio_entrada)
   const precioUnitario = evento.precio_entrada;
   const total = Number((cantidad * precioUnitario).toFixed(2));
@@ -56,6 +72,70 @@ export default function BoleteriaForm({
   // Cálculo de vuelto para efectivo
   const recibidoNum = parseFloat(montoRecibido) || 0;
   const vuelto = recibidoNum > total ? Number((recibidoNum - total).toFixed(2)) : 0;
+
+  const handleBuscarPreRegistro = async (codigoOpcional?: string) => {
+    const term = (codigoOpcional !== undefined ? codigoOpcional : codigoBusqueda).trim();
+    if (!term) {
+      Alert.alert('Ingresa un Código', 'Escribe el código (ej. CCL-1001 o 1001) o el DNI del comprador.');
+      return;
+    }
+
+    setBuscandoCodigo(true);
+    try {
+      const reg = await buscarPreRegistroPorCodigo(term, evento.id);
+      if (!reg) {
+        Alert.alert(
+          'No encontrado',
+          `No se encontró ningún pre-registro con "${term}". Verifica que el padre haya completado el formulario en la web.`
+        );
+        return;
+      }
+
+      if (reg.estado === 'COBRADO') {
+        Alert.alert(
+          'Código Ya Cobrado',
+          `El código ${reg.codigo} ya fue canjeado previamente${reg.atendido_por ? ' por ' + reg.atendido_por : ''}${reg.fecha_cobro ? ' el ' + new Date(reg.fecha_cobro).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}. No puede cobrarse dos veces.`
+        );
+        return;
+      }
+
+      setPreRegistroCargado(reg);
+      setCantidad(reg.cantidad);
+
+      if (reg.asistentes && Array.isArray(reg.asistentes) && reg.asistentes.length > 0) {
+        setAsistentes(
+          reg.asistentes.map((a: any) => ({
+            nombre: a.nombre || '',
+            dni: a.dni || '',
+          }))
+        );
+      } else {
+        const list = [{ nombre: reg.nombre_titular, dni: reg.dni_titular }];
+        for (let i = 1; i < reg.cantidad; i++) {
+          list.push({ nombre: `${reg.nombre_titular} (Acomp ${i + 1})`, dni: reg.dni_titular });
+        }
+        setAsistentes(list);
+      }
+
+      Alert.alert(
+        '¡Pre-Registro Encontrado!',
+        `Código: ${reg.codigo}\nComprador: ${reg.nombre_titular}\nEntradas: ${reg.cantidad}\nTotal a Cobrar: S/ ${reg.monto_total.toFixed(2)}`
+      );
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Error al buscar pre-registro.');
+    } finally {
+      setBuscandoCodigo(false);
+    }
+  };
+
+  const handleLimpiarPreRegistro = () => {
+    setPreRegistroCargado(null);
+    setCodigoBusqueda('');
+    setCantidad(1);
+    setAsistentes([{ nombre: '', dni: '' }]);
+    setMontoRecibido('');
+    setImage(null);
+  };
 
   const handleIncrement = () => {
     if (evento.aforo_maximo && cantidad >= 50) {
@@ -155,9 +235,12 @@ export default function BoleteriaForm({
       comprobanteAsset: image,
       colaboradorId,
       colaboradorNombre,
+      preRegistroCodigo: preRegistroCargado?.codigo,
     });
 
     // Resetear formulario tras emitir con éxito
+    setPreRegistroCargado(null);
+    setCodigoBusqueda('');
     setCantidad(1);
     setAsistentes([{ nombre: '', dni: '' }]);
     setMontoRecibido('');
@@ -166,6 +249,94 @@ export default function BoleteriaForm({
 
   return (
     <View style={[styles.container, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      {/* 0. SECCIÓN DE CANJE DE PRE-REGISTRO POR CÓDIGO ID O QR */}
+      <View
+        style={[
+          styles.preregistroCard,
+          {
+            backgroundColor: preRegistroCargado ? '#f0fdf4' : theme.background,
+            borderColor: preRegistroCargado ? '#86efac' : theme.border,
+          },
+        ]}
+      >
+        <View style={styles.preregistroHeader}>
+          <View style={styles.preregistroTitleRow}>
+            <Sparkles size={16} color={preRegistroCargado ? '#16a34a' : theme.primary} />
+            <Text
+              style={[
+                styles.preregistroTitle,
+                { color: preRegistroCargado ? '#16a34a' : theme.text },
+              ]}
+            >
+              {preRegistroCargado ? 'Pre-Registro Cargado' : 'Canjear Pre-Registro (Web / QR)'}
+            </Text>
+          </View>
+          {preRegistroCargado && (
+            <TouchableOpacity
+              style={styles.preregistroClearBtn}
+              onPress={handleLimpiarPreRegistro}
+              disabled={procesando}
+            >
+              <RotateCcw size={13} color="#dc2626" />
+              <Text style={styles.preregistroClearText}>Desvincular</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {preRegistroCargado ? (
+          <View style={styles.preregistroSuccessInfo}>
+            <View style={styles.preregistroBadgeCode}>
+              <Text style={styles.preregistroBadgeCodeText}>{preRegistroCargado.codigo}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.preregistroTitularText} numberOfLines={1}>
+                {preRegistroCargado.nombre_titular}
+              </Text>
+              <Text style={styles.preregistroSubText}>
+                DNI: {preRegistroCargado.dni_titular} • {preRegistroCargado.cantidad}{' '}
+                {preRegistroCargado.cantidad === 1 ? 'entrada' : 'entradas'} • Total: S/{' '}
+                {preRegistroCargado.monto_total.toFixed(2)}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.preregistroInputRow}>
+            <View
+              style={[
+                styles.preregistroInputBox,
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+            >
+              <QrCode size={16} color={theme.textMuted} />
+              <TextInput
+                style={[styles.preregistroInput, { color: theme.text }]}
+                placeholder="ID (ej: CCL-1001 o 1001) o DNI"
+                placeholderTextColor={theme.textMuted}
+                value={codigoBusqueda}
+                onChangeText={setCodigoBusqueda}
+                autoCapitalize="characters"
+                onSubmitEditing={() => handleBuscarPreRegistro()}
+                returnKeyType="search"
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.preregistroSearchBtn, { backgroundColor: theme.primary }]}
+              onPress={() => handleBuscarPreRegistro()}
+              disabled={buscandoCodigo || procesando}
+            >
+              {buscandoCodigo ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <Search size={15} color="#ffffff" />
+                  <Text style={styles.preregistroSearchBtnText}>Cargar</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
       {/* 1. Selector de Cantidad */}
       <View style={styles.sectionHeader}>
         <Ticket size={16} color={theme.primary} />
@@ -706,5 +877,107 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: fonts.bold,
     letterSpacing: 0.5,
+  },
+  // Estilos de Pre-Registro
+  preregistroCard: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 12,
+    marginBottom: 14,
+  },
+  preregistroHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  preregistroTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  preregistroTitle: {
+    fontSize: 13,
+    fontFamily: fonts.bold,
+  },
+  preregistroClearBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#fee2e2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  preregistroClearText: {
+    fontSize: 11,
+    fontFamily: fonts.semiBold,
+    color: '#dc2626',
+  },
+  preregistroSuccessInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#ffffff',
+    padding: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  preregistroBadgeCode: {
+    backgroundColor: '#16a34a',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+  },
+  preregistroBadgeCodeText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    letterSpacing: 0.5,
+  },
+  preregistroTitularText: {
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    color: '#14532d',
+  },
+  preregistroSubText: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: '#166534',
+  },
+  preregistroInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+  },
+  preregistroInputBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    height: 42,
+  },
+  preregistroInput: {
+    flex: 1,
+    fontSize: 13,
+    fontFamily: fonts.medium,
+  },
+  preregistroSearchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    height: 42,
+    borderRadius: 10,
+    justifyContent: 'center',
+  },
+  preregistroSearchBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontFamily: fonts.bold,
   },
 });

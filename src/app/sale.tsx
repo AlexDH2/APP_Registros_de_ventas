@@ -67,11 +67,11 @@ export default function SaleScreen() {
 
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
+      allowsEditing: false,
       quality: 0.6,
       base64: true,
     });
-
+ 
     if (!result.canceled && result.assets && result.assets[0]) {
       setImage(result.assets[0]);
     }
@@ -86,7 +86,7 @@ export default function SaleScreen() {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsEditing: true,
+      allowsEditing: false,
       quality: 0.6,
       base64: true,
     });
