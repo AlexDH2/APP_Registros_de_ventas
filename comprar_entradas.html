@@ -171,6 +171,55 @@
           </div>
         </div>
 
+        <!-- TARJETA DATOS DE PAGO YAPE (Visible en el formulario si hay datos o imagen configurada) -->
+        <div id="yape-card-form" class="hidden bg-purple-50 rounded-2xl p-4 shadow-sm border-2 border-purple-200">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-xl bg-purple-700 text-white flex items-center justify-center text-xs font-extrabold shadow-sm">
+                Y
+              </span>
+              <div>
+                <h2 class="text-sm font-bold text-purple-950 leading-tight">Datos de Pago Yape</h2>
+                <p class="text-[11px] text-purple-700">Puedes adelantar tu pago o pagar en puerta</p>
+              </div>
+            </div>
+            <span id="yape-form-monto" class="text-xs font-extrabold text-purple-900 bg-white px-2.5 py-1 rounded-lg border border-purple-200">
+              S/ 5.00
+            </span>
+          </div>
+
+          <div id="yape-form-imagen-wrap" class="hidden my-3 text-center">
+            <img
+              id="yape-form-imagen"
+              src=""
+              alt="Datos de Yape"
+              onclick="abrirZoomYape(this.src)"
+              class="w-full max-h-72 object-contain rounded-xl bg-white p-2 border border-purple-200 shadow-sm cursor-pointer hover:opacity-95 transition mx-auto"
+            >
+            <p class="text-[10px] text-purple-600 mt-1">Toca la imagen para ampliarla</p>
+          </div>
+
+          <div id="yape-form-datos" class="hidden bg-white rounded-xl p-3 border border-purple-200 space-y-2">
+            <div id="yape-form-numero-row" class="hidden flex items-center justify-between gap-2">
+              <div>
+                <span class="block text-[10px] uppercase font-bold text-slate-400">Número Yape</span>
+                <span id="yape-form-numero" class="text-base font-black text-purple-900 tracking-wide"></span>
+              </div>
+              <button
+                type="button"
+                onclick="copiarNumeroYape(this)"
+                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-800 text-xs font-bold transition active:scale-95"
+              >
+                📋 Copiar
+              </button>
+            </div>
+            <div id="yape-form-titular-row" class="hidden border-t border-purple-100 pt-1.5 flex items-center justify-between text-xs">
+              <span class="text-slate-500">Titular:</span>
+              <b id="yape-form-titular" class="text-slate-800"></b>
+            </div>
+          </div>
+        </div>
+
         <!-- BOTÓN SUBMIT -->
         <button 
           type="submit" 
@@ -185,7 +234,7 @@
         </button>
 
         <p class="text-center text-[11px] text-slate-500 leading-relaxed px-4">
-          🔒 No necesitas pagar por internet. Muestra tu código al llegar y paga con Yape, Plin o Efectivo.
+          🔒 Sin cuentas ni contraseñas. Genera tu código ID y presenta tu pago (Yape, Plin o Efectivo) en la puerta.
         </p>
       </form>
     </div>
@@ -252,6 +301,55 @@
         </div>
       </div>
 
+      <!-- TARJETA YAPE EN PANTALLA DE ÉXITO -->
+      <div id="yape-card-exito" class="hidden bg-purple-50 rounded-3xl p-5 shadow-md border-2 border-purple-300 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-xl bg-purple-700 text-white flex items-center justify-center text-sm font-black shadow-sm">
+              Y
+            </span>
+            <div>
+              <h3 class="text-sm font-extrabold text-purple-950">Paga ahora por Yape</h3>
+              <p class="text-[11px] text-purple-700">Muestra tu comprobante al personal</p>
+            </div>
+          </div>
+          <span id="yape-exito-monto" class="text-sm font-black text-purple-900 bg-white px-3 py-1 rounded-xl border border-purple-200">
+            S/ 5.00
+          </span>
+        </div>
+
+        <div id="yape-exito-imagen-wrap" class="hidden my-3 text-center">
+          <img
+            id="yape-exito-imagen"
+            src=""
+            alt="QR y Datos Yape"
+            onclick="abrirZoomYape(this.src)"
+            class="w-full max-h-80 object-contain rounded-2xl bg-white p-2 border border-purple-200 shadow-sm cursor-pointer mx-auto"
+          >
+          <p class="text-[10px] text-purple-600 mt-1">Toca la imagen para verla en pantalla completa</p>
+        </div>
+
+        <div id="yape-exito-datos" class="hidden bg-white rounded-2xl p-3.5 border border-purple-200 space-y-2">
+          <div id="yape-exito-numero-row" class="hidden flex items-center justify-between gap-2">
+            <div>
+              <span class="block text-[10px] uppercase font-bold text-slate-400">Número Yape</span>
+              <span id="yape-exito-numero" class="text-lg font-black text-purple-900 tracking-wide"></span>
+            </div>
+            <button
+              type="button"
+              onclick="copiarNumeroYape(this)"
+              class="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold transition active:scale-95 shadow-sm"
+            >
+              📋 Copiar número
+            </button>
+          </div>
+          <div id="yape-exito-titular-row" class="hidden border-t border-purple-100 pt-2 flex items-center justify-between text-xs">
+            <span class="text-slate-500">Titular:</span>
+            <b id="yape-exito-titular" class="text-slate-800"></b>
+          </div>
+        </div>
+      </div>
+
       <!-- INSTRUCCIONES RÁPIDAS -->
       <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4 text-xs text-slate-700 space-y-2">
         <div class="flex items-center gap-2 font-bold text-slate-900 mb-1">
@@ -259,8 +357,8 @@
           ¿Qué hacer ahora?
         </div>
         <p>📸 <b>Toma una captura de pantalla</b> de este pase para tenerlo guardado.</p>
-        <p>🚪 Al llegar a la puerta, muestra tu <b>Código o QR</b> al colaborador.</p>
-        <p>💳 Realiza tu pago con <b>Yape, Plin o Efectivo</b> y recibe tus boletos.</p>
+        <p>💜 Si pagas con <b>Yape</b>, realiza el pago usando los datos de arriba y ten lista tu constancia.</p>
+        <p>🚪 Al llegar a la puerta, muestra tu <b>Código ID</b> y tu pago al personal para recibir tus entradas.</p>
       </div>
 
       <button 
@@ -275,6 +373,14 @@
 
   </div>
 
+  <!-- MODAL ZOOM IMAGEN YAPE -->
+  <div id="modal-zoom-yape" onclick="cerrarZoomYape()" class="hidden fixed inset-0 z-50 bg-slate-950/90 flex flex-col items-center justify-center p-4">
+    <button type="button" onclick="cerrarZoomYape()" class="mb-3 px-4 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold border border-white/25">
+      ✕ Cerrar vista ampliada
+    </button>
+    <img id="modal-zoom-img" src="" alt="Yape Ampliado" class="max-w-full max-h-[82vh] rounded-2xl bg-white p-2 shadow-2xl object-contain">
+  </div>
+
   <script>
     // CONFIGURACIÓN SUPABASE
     const SUPABASE_URL = 'https://fqhspcbxtggckuurdbtc.supabase.co';
@@ -287,6 +393,7 @@
     let cantidad = 1;
     let asistentes = [{ nombre: '', dni: '' }];
     let codigoActual = '';
+    let yapeNumeroActual = '';
 
     // INICIALIZACIÓN
     async function init() {
@@ -306,6 +413,7 @@
           document.getElementById('evento-titulo').textContent = data.nombre || 'Gran Evento Deportivo 2026';
           document.getElementById('evento-lugar').textContent = data.lugar || 'Sede Oficial';
           document.getElementById('badge-precio').textContent = `S/ ${precioUnitario.toFixed(2)} c/u`;
+          configurarDatosYape(data);
         } else {
           document.getElementById('evento-titulo').textContent = 'Gran Evento Deportivo 2026';
         }
@@ -316,6 +424,77 @@
 
       renderAsistentes();
       actualizarTotales();
+    }
+
+    function configurarDatosYape(data) {
+      const imagenUrl = (data.yape_imagen_url || '').trim();
+      const numero = (data.yape_numero || '').trim();
+      const titular = (data.yape_titular || '').trim();
+      yapeNumeroActual = numero;
+
+      const tieneAlgunDatoYape = Boolean(imagenUrl || numero || titular);
+      if (!tieneAlgunDatoYape) return;
+
+      ['form', 'exito'].forEach((prefix) => {
+        const card = document.getElementById(`yape-card-${prefix}`);
+        if (card) card.classList.remove('hidden');
+
+        if (imagenUrl) {
+          const imgWrap = document.getElementById(`yape-${prefix}-imagen-wrap`);
+          const imgEl = document.getElementById(`yape-${prefix}-imagen`);
+          if (imgWrap && imgEl) {
+            imgEl.src = imagenUrl;
+            imgWrap.classList.remove('hidden');
+          }
+        }
+
+        if (numero || titular) {
+          const datosBox = document.getElementById(`yape-${prefix}-datos`);
+          if (datosBox) datosBox.classList.remove('hidden');
+        }
+
+        if (numero) {
+          const numRow = document.getElementById(`yape-${prefix}-numero-row`);
+          const numEl = document.getElementById(`yape-${prefix}-numero`);
+          if (numRow && numEl) {
+            numEl.textContent = numero;
+            numRow.classList.remove('hidden');
+          }
+        }
+
+        if (titular) {
+          const titRow = document.getElementById(`yape-${prefix}-titular-row`);
+          const titEl = document.getElementById(`yape-${prefix}-titular`);
+          if (titRow && titEl) {
+            titEl.textContent = titular;
+            titRow.classList.remove('hidden');
+          }
+        }
+      });
+    }
+
+    function copiarNumeroYape(btnEl) {
+      if (!yapeNumeroActual) return;
+      const soloDigitos = yapeNumeroActual.replace(/\s+/g, '');
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(soloDigitos).then(() => {
+          const original = btnEl.textContent;
+          btnEl.textContent = '✅ ¡Copiado!';
+          setTimeout(() => { btnEl.textContent = original; }, 2000);
+        });
+      } else {
+        alert('Número de Yape: ' + yapeNumeroActual);
+      }
+    }
+
+    function abrirZoomYape(src) {
+      if (!src) return;
+      document.getElementById('modal-zoom-img').src = src;
+      document.getElementById('modal-zoom-yape').classList.remove('hidden');
+    }
+
+    function cerrarZoomYape() {
+      document.getElementById('modal-zoom-yape').classList.add('hidden');
     }
 
     function ajustarCantidad(delta) {
@@ -350,6 +529,10 @@
     function actualizarTotales() {
       const total = (cantidad * precioUnitario).toFixed(2);
       document.getElementById('monto-total-display').textContent = `S/ ${total}`;
+      const yapeFormMonto = document.getElementById('yape-form-monto');
+      if (yapeFormMonto) yapeFormMonto.textContent = `S/ ${total}`;
+      const yapeExitoMonto = document.getElementById('yape-exito-monto');
+      if (yapeExitoMonto) yapeExitoMonto.textContent = `S/ ${total}`;
       document.getElementById('btn-submit-monto').innerHTML = `S/ ${total} <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>`;
     }
 
@@ -526,6 +709,8 @@
       document.getElementById('exito-dni').textContent = dni;
       document.getElementById('exito-cantidad').textContent = `${res.cantidad} ${res.cantidad === 1 ? 'entrada' : 'entradas'}`;
       document.getElementById('exito-total').textContent = `S/ ${Number(res.monto_total).toFixed(2)}`;
+      const yapeExitoMonto = document.getElementById('yape-exito-monto');
+      if (yapeExitoMonto) yapeExitoMonto.textContent = `S/ ${Number(res.monto_total).toFixed(2)}`;
 
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=8&data=${encodeURIComponent(res.codigo)}`;
       document.getElementById('exito-qr-img').src = qrUrl;

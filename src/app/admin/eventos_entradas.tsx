@@ -103,6 +103,9 @@ export default function AdminEventosEntradasScreen() {
     lugar?: string;
     precio_entrada: number;
     aforo_maximo?: number | null;
+    yape_numero?: string | null;
+    yape_titular?: string | null;
+    yape_imagen_url?: string | null;
   }) => {
     try {
       await guardarConfiguracionEvento(datos);

@@ -481,16 +481,14 @@ export default function EntradasVentaScreen() {
               <Image
                 source={{
                   uri: `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=8&data=${encodeURIComponent(
-                    typeof window !== 'undefined' && window.location?.origin
-                      ? `${window.location.origin}/comprar`
-                      : 'https://express-kazoo-llld4t9.tmp.now/comprar'
+                    'https://web-entradas.vercel.app'
                   )}`,
                 }}
                 style={{ width: 220, height: 220, borderRadius: 8 }}
                 resizeMode="contain"
               />
               <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: '#64748b', marginTop: 8 }}>
-                Enlace directo: /comprar
+                https://web-entradas.vercel.app
               </Text>
             </View>
 
@@ -501,9 +499,7 @@ export default function EntradasVentaScreen() {
                   { borderColor: theme.border, flex: 1, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 6 },
                 ]}
                 onPress={() => {
-                  const url = typeof window !== 'undefined' && window.location?.origin
-                    ? `${window.location.origin}/comprar`
-                    : 'https://express-kazoo-llld4t9.tmp.now/comprar';
+                  const url = 'https://web-entradas.vercel.app';
                   if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
                     navigator.clipboard.writeText(url);
                     setUrlCopiada(true);

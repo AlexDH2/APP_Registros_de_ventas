@@ -151,3 +151,9 @@ END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.marcar_preregistro_cobrado TO anon, authenticated, service_role;
+
+-- 6. Campos de Yape en la tabla eventos (Imagen QR, número y titular visibles para los padres en la web)
+ALTER TABLE public.eventos
+  ADD COLUMN IF NOT EXISTS yape_numero TEXT,
+  ADD COLUMN IF NOT EXISTS yape_titular TEXT,
+  ADD COLUMN IF NOT EXISTS yape_imagen_url TEXT;

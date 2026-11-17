@@ -41,6 +41,9 @@ export async function fetchEventoActivo(): Promise<Evento | null> {
     precio_entrada: Number(data.precio_entrada),
     aforo_maximo: data.aforo_maximo ? Number(data.aforo_maximo) : null,
     estado: data.estado,
+    yape_numero: data.yape_numero || null,
+    yape_titular: data.yape_titular || null,
+    yape_imagen_url: data.yape_imagen_url || null,
     created_at: data.created_at,
   };
 }
@@ -248,6 +251,39 @@ export function procesarResumenColaboradores(ventas: VentaEntrada[]): Colaborado
 }
 
 /**
+ * Sube la imagen con los datos / QR de Yape al bucket 'comprobantes' de Supabase Storage.
+ */
+export async function uploadImagenYape(
+  asset: any,
+  eventoId?: number
+): Promise<string | null> {
+  if (!asset || !asset.base64) return null;
+
+  try {
+    const timestamp = Date.now();
+    const fileName = `yape/yape_evento_${eventoId || 'nuevo'}_${timestamp}.jpg`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('comprobantes')
+      .upload(fileName, decode(asset.base64), {
+        contentType: 'image/jpeg',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.warn('Advertencia al subir imagen Yape a Supabase Storage:', uploadError);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage.from('comprobantes').getPublicUrl(fileName);
+    return urlData?.publicUrl || null;
+  } catch (err) {
+    console.warn('Fallo inesperado al subir imagen Yape:', err);
+    return null;
+  }
+}
+
+/**
  * Guarda o actualiza los datos del evento directamente en la base de datos.
  */
 export async function guardarConfiguracionEvento(datos: {
@@ -257,14 +293,27 @@ export async function guardarConfiguracionEvento(datos: {
   precio_entrada: number;
   aforo_maximo?: number | null;
   estado?: 'ACTIVO' | 'PAUSADO' | 'FINALIZADO';
+  yape_numero?: string | null;
+  yape_titular?: string | null;
+  yape_imagen_url?: string | null;
 }): Promise<Evento> {
-  const payload = {
+  const payload: any = {
     nombre: datos.nombre.trim(),
     lugar: datos.lugar?.trim() || null,
     precio_entrada: datos.precio_entrada,
     aforo_maximo: datos.aforo_maximo || null,
     estado: datos.estado || 'ACTIVO',
   };
+
+  if (datos.yape_numero !== undefined) {
+    payload.yape_numero = datos.yape_numero?.trim() || null;
+  }
+  if (datos.yape_titular !== undefined) {
+    payload.yape_titular = datos.yape_titular?.trim() || null;
+  }
+  if (datos.yape_imagen_url !== undefined) {
+    payload.yape_imagen_url = datos.yape_imagen_url || null;
+  }
 
   if (datos.id) {
     const { data, error } = await supabase
@@ -282,6 +331,9 @@ export async function guardarConfiguracionEvento(datos: {
       precio_entrada: Number(data.precio_entrada),
       aforo_maximo: data.aforo_maximo ? Number(data.aforo_maximo) : null,
       estado: data.estado,
+      yape_numero: data.yape_numero || null,
+      yape_titular: data.yape_titular || null,
+      yape_imagen_url: data.yape_imagen_url || null,
       created_at: data.created_at,
     };
   } else {
@@ -299,6 +351,9 @@ export async function guardarConfiguracionEvento(datos: {
       precio_entrada: Number(data.precio_entrada),
       aforo_maximo: data.aforo_maximo ? Number(data.aforo_maximo) : null,
       estado: data.estado,
+      yape_numero: data.yape_numero || null,
+      yape_titular: data.yape_titular || null,
+      yape_imagen_url: data.yape_imagen_url || null,
       created_at: data.created_at,
     };
   }

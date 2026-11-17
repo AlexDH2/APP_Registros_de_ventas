@@ -5,7 +5,7 @@
   "framework": null,
   "rewrites": [
     {
-      "source": "/(.*)",
+      "source": "/((?!comprar_entradas.html|comprar.html|assets|_expo|favicon.ico).*)",
       "destination": "/index.html"
     }
   ],

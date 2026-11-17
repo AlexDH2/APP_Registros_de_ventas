@@ -144,6 +144,136 @@ export default function ComprarEntradasScreen() {
     }
   };
 
+  const handleCopiarYape = () => {
+    const numero = evento?.yape_numero?.trim();
+    if (!numero) return;
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(numero.replace(/\s+/g, ''));
+      Alert.alert('Copiado', `Número de Yape (${numero}) copiado.`);
+    } else {
+      Alert.alert('Número Yape', numero);
+    }
+  };
+
+  const renderTarjetaYape = (montoMostrar: number) => {
+    if (!evento?.yape_imagen_url && !evento?.yape_numero && !evento?.yape_titular) {
+      return null;
+    }
+
+    return (
+      <View
+        style={{
+          backgroundColor: '#faf5ff',
+          borderRadius: 16,
+          padding: 16,
+          marginBottom: 16,
+          borderWidth: 1.5,
+          borderColor: '#d8b4fe',
+        }}
+      >
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 8,
+                backgroundColor: '#7e22ce',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: '#ffffff', fontFamily: fonts.bold, fontSize: 13 }}>Y</Text>
+            </View>
+            <View>
+              <Text style={{ fontSize: 14, fontFamily: fonts.bold, color: '#581c87' }}>
+                Datos de Pago Yape
+              </Text>
+              <Text style={{ fontSize: 11, fontFamily: fonts.regular, color: '#7e22ce' }}>
+                Muestra tu captura de Yape en puerta
+              </Text>
+            </View>
+          </View>
+          <View
+            style={{
+              backgroundColor: '#ffffff',
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 8,
+              borderWidth: 1,
+              borderColor: '#e9d5ff',
+            }}
+          >
+            <Text style={{ fontSize: 13, fontFamily: fonts.bold, color: '#6b21a8' }}>
+              S/ {montoMostrar.toFixed(2)}
+            </Text>
+          </View>
+        </View>
+
+        {!!evento?.yape_imagen_url && (
+          <Image
+            source={{ uri: evento.yape_imagen_url }}
+            style={{
+              width: '100%',
+              height: 240,
+              borderRadius: 12,
+              backgroundColor: '#ffffff',
+              marginBottom: 10,
+            }}
+            resizeMode="contain"
+          />
+        )}
+
+        {(!!evento?.yape_numero || !!evento?.yape_titular) && (
+          <View
+            style={{
+              backgroundColor: '#ffffff',
+              borderRadius: 12,
+              padding: 12,
+              borderWidth: 1,
+              borderColor: '#e9d5ff',
+              gap: 6,
+            }}
+          >
+            {!!evento?.yape_numero && (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View>
+                  <Text style={{ fontSize: 10, fontFamily: fonts.bold, color: '#94a3b8' }}>NÚMERO YAPE</Text>
+                  <Text style={{ fontSize: 17, fontFamily: fonts.bold, color: '#581c87' }}>
+                    {evento.yape_numero}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleCopiarYape}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 4,
+                    backgroundColor: '#7e22ce',
+                    paddingHorizontal: 12,
+                    paddingVertical: 7,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Copy size={13} color="#ffffff" />
+                  <Text style={{ color: '#ffffff', fontSize: 12, fontFamily: fonts.bold }}>Copiar</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {!!evento?.yape_titular && (
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingTop: 4 }}>
+                <Text style={{ fontSize: 12, fontFamily: fonts.regular, color: '#64748b' }}>Titular:</Text>
+                <Text style={{ fontSize: 12, fontFamily: fonts.semiBold, color: '#1e293b' }}>
+                  {evento.yape_titular}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
+
   const handleSubmit = async () => {
     if (enviando) return;
 
@@ -317,6 +447,9 @@ export default function ComprarEntradasScreen() {
               </View>
             </View>
           </View>
+
+          {/* Datos Yape en Pantalla de Éxito */}
+          {renderTarjetaYape(paseGenerado.monto_total)}
 
           {/* Pasos en la Puerta */}
           <View style={styles.stepsCard}>
@@ -583,6 +716,9 @@ export default function ComprarEntradasScreen() {
             </View>
           </View>
         )}
+
+        {/* Datos Yape en el Formulario */}
+        {renderTarjetaYape(montoTotal)}
 
         {/* Botón de Enviar Pre-Registro */}
         <TouchableOpacity

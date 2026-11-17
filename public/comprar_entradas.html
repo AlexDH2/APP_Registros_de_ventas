@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pre-Registro de Entradas | Boletería Digital</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Poppins', sans-serif; }
+    .bounce-in { animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+    @keyframes bounceIn {
+      0% { opacity: 0; transform: scale(0.9); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 pb-12 antialiased selection:bg-blue-500 selection:text-white">
+
+  <!-- CONTENEDOR PRINCIPAL -->
+  <div class="max-w-md mx-auto px-4 pt-4 sm:pt-6">
+
+    <!-- ESTADO 1: FORMULARIO DE REGISTRO -->
+    <div id="pantalla-formulario">
+      
+      <!-- HEADER DEL EVENTO -->
+      <div class="bg-slate-900 text-white rounded-2xl p-5 mb-4 shadow-xl border border-slate-800 relative overflow-hidden">
+        <div class="absolute -right-6 -bottom-6 w-28 h-28 bg-blue-600/20 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div class="flex items-center justify-between mb-3">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-600 text-white shadow-sm">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            BOLETERÍA EN LÍNEA
+          </span>
+          <span id="badge-precio" class="px-3 py-1 rounded-xl text-xs font-bold bg-slate-800 border border-slate-700 text-sky-400">
+            S/ 5.00 c/u
+          </span>
+        </div>
+
+        <h1 id="evento-titulo" class="text-xl font-bold tracking-tight text-white mb-1">
+          Cargando evento...
+        </h1>
+        <div class="flex items-center gap-2 text-slate-400 text-xs mb-3">
+          <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+          </svg>
+          <span id="evento-lugar">Sede Oficial</span>
+        </div>
+
+        <p class="text-xs text-slate-300 bg-slate-800/80 rounded-xl p-2.5 border border-slate-700/60 leading-relaxed">
+          ⚡ Regístrate en 30 segundos, obtén tu <b class="text-sky-300">Código ID</b> y solo preséntalo en puerta para pagar y entrar sin hacer cola.
+        </p>
+      </div>
+
+      <!-- FORMULARIO -->
+      <form id="form-preregistro" onsubmit="enviarFormulario(event)" class="space-y-4">
+        
+        <!-- PASO 1: DATOS DEL COMPRADOR (PADRE/MADRE) -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">1</span>
+            <h2 class="text-sm font-bold text-slate-900">Datos del Comprador (Padre/Madre)</h2>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">
+                Nombres y Apellidos Completos <span class="text-rose-500">*</span>
+              </label>
+              <input 
+                type="text" 
+                id="nombre-titular" 
+                required 
+                placeholder="Ej. Juan Carlos Pérez Rojas" 
+                oninput="if(cantidad >= 2) renderAsistentes()"
+                class="w-full text-sm px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-800 placeholder-slate-400 font-medium transition"
+              >
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                  DNI <span class="text-rose-500">*</span>
+                </label>
+                <input 
+                  type="tel" 
+                  id="dni-titular" 
+                  required 
+                  maxlength="10" 
+                  pattern="[0-9]{8,10}"
+                  placeholder="8 dígitos" 
+                  oninput="if(cantidad >= 2) renderAsistentes()"
+                  class="w-full text-sm px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-800 placeholder-slate-400 font-medium transition"
+                >
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-slate-700 mb-1">
+                  Celular / WhatsApp
+                </label>
+                <input 
+                  type="tel" 
+                  id="telefono" 
+                  maxlength="12" 
+                  placeholder="Ej. 987654321" 
+                  class="w-full text-sm px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-800 placeholder-slate-400 font-medium transition"
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASO 2: CANTIDAD DE ENTRADAS -->
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+          <div class="flex items-center gap-2.5 mb-3">
+            <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">2</span>
+            <h2 class="text-sm font-bold text-slate-900">¿Cuántas entradas deseas?</h2>
+          </div>
+
+          <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <button 
+              type="button" 
+              onclick="ajustarCantidad(-1)" 
+              class="w-11 h-11 rounded-lg bg-white border border-slate-300 flex items-center justify-center text-slate-700 active:scale-95 shadow-sm transition hover:bg-slate-100 disabled:opacity-40"
+              id="btn-menos"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 12H4"></path></svg>
+            </button>
+
+            <div class="text-center">
+              <span id="cantidad-display" class="block text-2xl font-black text-slate-900 leading-none">1</span>
+              <span id="cantidad-sub" class="text-[11px] text-slate-500 font-medium">entrada</span>
+            </div>
+
+            <button 
+              type="button" 
+              onclick="ajustarCantidad(1)" 
+              class="w-11 h-11 rounded-lg bg-white border border-slate-300 flex items-center justify-center text-slate-700 active:scale-95 shadow-sm transition hover:bg-slate-100"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"></path></svg>
+            </button>
+          </div>
+
+          <div class="mt-3 flex items-center justify-between bg-blue-50/70 border border-blue-200 rounded-xl p-3">
+            <span class="text-xs font-semibold text-blue-900">Total a pagar en puerta:</span>
+            <span id="monto-total-display" class="text-lg font-black text-blue-700">S/ 5.00</span>
+          </div>
+        </div>
+
+        <!-- PASO 3: ASISTENTES DINÁMICOS (Solo visible si cantidad >= 2) -->
+        <div id="seccion-asistentes" class="hidden bg-white rounded-2xl p-4 shadow-sm border border-slate-200">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2.5">
+              <span class="w-6 h-6 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-bold">3</span>
+              <h2 id="titulo-asistentes" class="text-sm font-bold text-slate-900">Datos de los Acompañantes</h2>
+            </div>
+            <button 
+              type="button" 
+              id="btn-copiar-todos" 
+              onclick="copiarTitularATodos()" 
+              class="text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition"
+            >
+              Copiar mis datos
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-500 mb-3">Tu entrada ya está registrada con tus datos del paso 1. Ingresa los datos de las personas que te acompañan.</p>
+
+          <div id="lista-asistentes" class="space-y-3">
+            <!-- Se genera dinámicamente con JS -->
+          </div>
+        </div>
+
+        <!-- TARJETA DATOS DE PAGO YAPE (Visible en el formulario si hay datos o imagen configurada) -->
+        <div id="yape-card-form" class="hidden bg-purple-50 rounded-2xl p-4 shadow-sm border-2 border-purple-200">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-xl bg-purple-700 text-white flex items-center justify-center text-xs font-extrabold shadow-sm">
+                Y
+              </span>
+              <div>
+                <h2 class="text-sm font-bold text-purple-950 leading-tight">Datos de Pago Yape</h2>
+                <p class="text-[11px] text-purple-700">Puedes adelantar tu pago o pagar en puerta</p>
+              </div>
+            </div>
+            <span id="yape-form-monto" class="text-xs font-extrabold text-purple-900 bg-white px-2.5 py-1 rounded-lg border border-purple-200">
+              S/ 5.00
+            </span>
+          </div>
+
+          <div id="yape-form-imagen-wrap" class="hidden my-3 text-center">
+            <img
+              id="yape-form-imagen"
+              src=""
+              alt="Datos de Yape"
+              onclick="abrirZoomYape(this.src)"
+              class="w-full max-h-72 object-contain rounded-xl bg-white p-2 border border-purple-200 shadow-sm cursor-pointer hover:opacity-95 transition mx-auto"
+            >
+            <p class="text-[10px] text-purple-600 mt-1">Toca la imagen para ampliarla</p>
+          </div>
+
+          <div id="yape-form-datos" class="hidden bg-white rounded-xl p-3 border border-purple-200 space-y-2">
+            <div id="yape-form-numero-row" class="hidden flex items-center justify-between gap-2">
+              <div>
+                <span class="block text-[10px] uppercase font-bold text-slate-400">Número Yape</span>
+                <span id="yape-form-numero" class="text-base font-black text-purple-900 tracking-wide"></span>
+              </div>
+              <button
+                type="button"
+                onclick="copiarNumeroYape(this)"
+                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-800 text-xs font-bold transition active:scale-95"
+              >
+                📋 Copiar
+              </button>
+            </div>
+            <div id="yape-form-titular-row" class="hidden border-t border-purple-100 pt-1.5 flex items-center justify-between text-xs">
+              <span class="text-slate-500">Titular:</span>
+              <b id="yape-form-titular" class="text-slate-800"></b>
+            </div>
+          </div>
+        </div>
+
+        <!-- BOTÓN SUBMIT -->
+        <button 
+          type="submit" 
+          id="btn-submit" 
+          class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-2xl shadow-lg shadow-blue-500/30 flex items-center justify-between active:scale-[0.99] transition"
+        >
+          <span class="text-sm sm:text-base">Generar Pase de Ingreso</span>
+          <span id="btn-submit-monto" class="bg-blue-500/50 px-2.5 py-1 rounded-lg text-xs sm:text-sm font-extrabold flex items-center gap-1.5">
+            S/ 5.00
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+          </span>
+        </button>
+
+        <p class="text-center text-[11px] text-slate-500 leading-relaxed px-4">
+          🔒 Sin cuentas ni contraseñas. Genera tu código ID y presenta tu pago (Yape, Plin o Efectivo) en la puerta.
+        </p>
+      </form>
+    </div>
+
+    <!-- ESTADO 2: PANTALLA DE ÉXITO CON ID Y QR -->
+    <div id="pantalla-exito" class="hidden bounce-in">
+      
+      <div class="text-center mb-4">
+        <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2 shadow-inner">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+        </div>
+        <h2 class="text-xl font-extrabold text-slate-900">¡Pre-Registro Listo!</h2>
+        <p class="text-xs text-slate-600 mt-0.5">Presenta este código en la puerta para pagar e ingresar.</p>
+      </div>
+
+      <!-- PASE DIGITAL CARD -->
+      <div class="bg-white rounded-3xl p-5 shadow-xl border-2 border-blue-500 relative overflow-hidden mb-4">
+        
+        <div class="text-center border-b border-slate-100 pb-3 mb-4">
+          <p id="exito-evento-nombre" class="text-sm font-bold text-slate-800">Gran Evento Deportivo 2026</p>
+          <p id="exito-evento-lugar" class="text-xs text-slate-500">Sede Oficial</p>
+        </div>
+
+        <!-- CÓDIGO ID ENORME -->
+        <div class="bg-blue-50 border-2 border-blue-200 rounded-2xl p-4 text-center mb-4">
+          <p class="text-[10px] font-bold text-blue-600 tracking-wider uppercase mb-1">CÓDIGO DE ATENCIÓN</p>
+          <p id="exito-codigo-id" class="text-4xl font-black text-blue-900 tracking-wider">CCL-1001</p>
+          
+          <button 
+            type="button" 
+            onclick="copiarCodigo()" 
+            id="btn-copiar"
+            class="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1 bg-white border border-blue-300 rounded-lg text-xs font-semibold text-blue-700 hover:bg-blue-100 active:scale-95 transition"
+          >
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+            <span id="btn-copiar-texto">Toca para copiar código</span>
+          </button>
+        </div>
+
+        <!-- CÓDIGO QR -->
+        <div class="text-center border-b border-slate-100 pb-4 mb-4">
+          <img id="exito-qr-img" src="" alt="QR Entrada" class="w-48 h-48 mx-auto bg-slate-50 rounded-xl p-1 border border-slate-200">
+          <p class="text-[10px] text-slate-500 mt-2">El personal escaneará este QR o registrará tu código</p>
+        </div>
+
+        <!-- DETALLES DEL PASE -->
+        <div class="space-y-2 text-xs">
+          <div class="flex justify-between text-slate-600">
+            <span>Comprador:</span>
+            <b id="exito-titular" class="text-slate-800">Juan Pérez</b>
+          </div>
+          <div class="flex justify-between text-slate-600">
+            <span>DNI:</span>
+            <b id="exito-dni" class="text-slate-800">12345678</b>
+          </div>
+          <div class="flex justify-between text-slate-600">
+            <span>Cantidad de Entradas:</span>
+            <b id="exito-cantidad" class="text-blue-600 font-bold">1 entrada</b>
+          </div>
+          <div class="flex justify-between text-slate-900 pt-2 border-t border-slate-200 text-sm">
+            <span class="font-bold">Total a Pagar en Puerta:</span>
+            <b id="exito-total" class="text-lg font-black text-emerald-600">S/ 5.00</b>
+          </div>
+        </div>
+      </div>
+
+      <!-- TARJETA YAPE EN PANTALLA DE ÉXITO -->
+      <div id="yape-card-exito" class="hidden bg-purple-50 rounded-3xl p-5 shadow-md border-2 border-purple-300 mb-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2.5">
+            <span class="w-8 h-8 rounded-xl bg-purple-700 text-white flex items-center justify-center text-sm font-black shadow-sm">
+              Y
+            </span>
+            <div>
+              <h3 class="text-sm font-extrabold text-purple-950">Paga ahora por Yape</h3>
+              <p class="text-[11px] text-purple-700">Muestra tu comprobante al personal</p>
+            </div>
+          </div>
+          <span id="yape-exito-monto" class="text-sm font-black text-purple-900 bg-white px-3 py-1 rounded-xl border border-purple-200">
+            S/ 5.00
+          </span>
+        </div>
+
+        <div id="yape-exito-imagen-wrap" class="hidden my-3 text-center">
+          <img
+            id="yape-exito-imagen"
+            src=""
+            alt="QR y Datos Yape"
+            onclick="abrirZoomYape(this.src)"
+            class="w-full max-h-80 object-contain rounded-2xl bg-white p-2 border border-purple-200 shadow-sm cursor-pointer mx-auto"
+          >
+          <p class="text-[10px] text-purple-600 mt-1">Toca la imagen para verla en pantalla completa</p>
+        </div>
+
+        <div id="yape-exito-datos" class="hidden bg-white rounded-2xl p-3.5 border border-purple-200 space-y-2">
+          <div id="yape-exito-numero-row" class="hidden flex items-center justify-between gap-2">
+            <div>
+              <span class="block text-[10px] uppercase font-bold text-slate-400">Número Yape</span>
+              <span id="yape-exito-numero" class="text-lg font-black text-purple-900 tracking-wide"></span>
+            </div>
+            <button
+              type="button"
+              onclick="copiarNumeroYape(this)"
+              class="inline-flex items-center gap-1 px-3 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 text-white text-xs font-bold transition active:scale-95 shadow-sm"
+            >
+              📋 Copiar número
+            </button>
+          </div>
+          <div id="yape-exito-titular-row" class="hidden border-t border-purple-100 pt-2 flex items-center justify-between text-xs">
+            <span class="text-slate-500">Titular:</span>
+            <b id="yape-exito-titular" class="text-slate-800"></b>
+          </div>
+        </div>
+      </div>
+
+      <!-- INSTRUCCIONES RÁPIDAS -->
+      <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 mb-4 text-xs text-slate-700 space-y-2">
+        <div class="flex items-center gap-2 font-bold text-slate-900 mb-1">
+          <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          ¿Qué hacer ahora?
+        </div>
+        <p>📸 <b>Toma una captura de pantalla</b> de este pase para tenerlo guardado.</p>
+        <p>💜 Si pagas con <b>Yape</b>, realiza el pago usando los datos de arriba y ten lista tu constancia.</p>
+        <p>🚪 Al llegar a la puerta, muestra tu <b>Código ID</b> y tu pago al personal para recibir tus entradas.</p>
+      </div>
+
+      <button 
+        type="button" 
+        onclick="reiniciarFormulario()" 
+        class="w-full py-3 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition shadow-sm text-center"
+      >
+        Registrar otra compra de entradas
+      </button>
+
+    </div>
+
+  </div>
+
+  <!-- MODAL ZOOM IMAGEN YAPE -->
+  <div id="modal-zoom-yape" onclick="cerrarZoomYape()" class="hidden fixed inset-0 z-50 bg-slate-950/90 flex flex-col items-center justify-center p-4">
+    <button type="button" onclick="cerrarZoomYape()" class="mb-3 px-4 py-1.5 rounded-full bg-white/15 text-white text-xs font-bold border border-white/25">
+      ✕ Cerrar vista ampliada
+    </button>
+    <img id="modal-zoom-img" src="" alt="Yape Ampliado" class="max-w-full max-h-[82vh] rounded-2xl bg-white p-2 shadow-2xl object-contain">
+  </div>
+
+  <script>
+    // CONFIGURACIÓN SUPABASE
+    const SUPABASE_URL = 'https://fqhspcbxtggckuurdbtc.supabase.co';
+    const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZxaHNwY2J4dGdnY2t1dXJkYnRjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE1NzY5ODUsImV4cCI6MjEwNzE1Mjk4NX0.9Nn8Zr47DbT6LwN13CjwHnEcSGu2CWvX0tAtxboKDMY';
+    const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+
+    // ESTADO
+    let eventoActual = null;
+    let precioUnitario = 5.00;
+    let cantidad = 1;
+    let asistentes = [{ nombre: '', dni: '' }];
+    let codigoActual = '';
+    let yapeNumeroActual = '';
+
+    // INICIALIZACIÓN
+    async function init() {
+      try {
+        const { data, error } = await db
+          .from('eventos')
+          .select('*')
+          .eq('estado', 'ACTIVO')
+          .order('id', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (data) {
+          eventoActual = data;
+          precioUnitario = Number(data.precio_entrada) || 5.00;
+          document.getElementById('evento-titulo').textContent = data.nombre || 'Gran Evento Deportivo 2026';
+          document.getElementById('evento-lugar').textContent = data.lugar || 'Sede Oficial';
+          document.getElementById('badge-precio').textContent = `S/ ${precioUnitario.toFixed(2)} c/u`;
+          configurarDatosYape(data);
+        } else {
+          document.getElementById('evento-titulo').textContent = 'Gran Evento Deportivo 2026';
+        }
+      } catch (e) {
+        console.warn('Error al consultar evento activo:', e);
+        document.getElementById('evento-titulo').textContent = 'Gran Evento Deportivo 2026';
+      }
+
+      renderAsistentes();
+      actualizarTotales();
+    }
+
+    function configurarDatosYape(data) {
+      const imagenUrl = (data.yape_imagen_url || '').trim();
+      const numero = (data.yape_numero || '').trim();
+      const titular = (data.yape_titular || '').trim();
+      yapeNumeroActual = numero;
+
+      const tieneAlgunDatoYape = Boolean(imagenUrl || numero || titular);
+      if (!tieneAlgunDatoYape) return;
+
+      ['form', 'exito'].forEach((prefix) => {
+        const card = document.getElementById(`yape-card-${prefix}`);
+        if (card) card.classList.remove('hidden');
+
+        if (imagenUrl) {
+          const imgWrap = document.getElementById(`yape-${prefix}-imagen-wrap`);
+          const imgEl = document.getElementById(`yape-${prefix}-imagen`);
+          if (imgWrap && imgEl) {
+            imgEl.src = imagenUrl;
+            imgWrap.classList.remove('hidden');
+          }
+        }
+
+        if (numero || titular) {
+          const datosBox = document.getElementById(`yape-${prefix}-datos`);
+          if (datosBox) datosBox.classList.remove('hidden');
+        }
+
+        if (numero) {
+          const numRow = document.getElementById(`yape-${prefix}-numero-row`);
+          const numEl = document.getElementById(`yape-${prefix}-numero`);
+          if (numRow && numEl) {
+            numEl.textContent = numero;
+            numRow.classList.remove('hidden');
+          }
+        }
+
+        if (titular) {
+          const titRow = document.getElementById(`yape-${prefix}-titular-row`);
+          const titEl = document.getElementById(`yape-${prefix}-titular`);
+          if (titRow && titEl) {
+            titEl.textContent = titular;
+            titRow.classList.remove('hidden');
+          }
+        }
+      });
+    }
+
+    function copiarNumeroYape(btnEl) {
+      if (!yapeNumeroActual) return;
+      const soloDigitos = yapeNumeroActual.replace(/\s+/g, '');
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(soloDigitos).then(() => {
+          const original = btnEl.textContent;
+          btnEl.textContent = '✅ ¡Copiado!';
+          setTimeout(() => { btnEl.textContent = original; }, 2000);
+        });
+      } else {
+        alert('Número de Yape: ' + yapeNumeroActual);
+      }
+    }
+
+    function abrirZoomYape(src) {
+      if (!src) return;
+      document.getElementById('modal-zoom-img').src = src;
+      document.getElementById('modal-zoom-yape').classList.remove('hidden');
+    }
+
+    function cerrarZoomYape() {
+      document.getElementById('modal-zoom-yape').classList.add('hidden');
+    }
+
+    function ajustarCantidad(delta) {
+      const nueva = cantidad + delta;
+      if (nueva < 1 || nueva > 20) return;
+      cantidad = nueva;
+
+      while (asistentes.length < cantidad) {
+        asistentes.push({ nombre: '', dni: '' });
+      }
+      if (asistentes.length > cantidad) {
+        asistentes = asistentes.slice(0, cantidad);
+      }
+
+      document.getElementById('btn-menos').disabled = cantidad <= 1;
+      document.getElementById('cantidad-display').textContent = cantidad;
+      document.getElementById('cantidad-sub').textContent = cantidad === 1 ? 'entrada' : 'entradas';
+
+      // El paso 3 SOLO se muestra a partir de 2 entradas
+      const seccionAsistentes = document.getElementById('seccion-asistentes');
+      if (cantidad <= 1) {
+        seccionAsistentes.classList.add('hidden');
+      } else {
+        seccionAsistentes.classList.remove('hidden');
+        document.getElementById('titulo-asistentes').textContent = `Datos de los Acompañantes (${cantidad - 1})`;
+      }
+
+      renderAsistentes();
+      actualizarTotales();
+    }
+
+    function actualizarTotales() {
+      const total = (cantidad * precioUnitario).toFixed(2);
+      document.getElementById('monto-total-display').textContent = `S/ ${total}`;
+      const yapeFormMonto = document.getElementById('yape-form-monto');
+      if (yapeFormMonto) yapeFormMonto.textContent = `S/ ${total}`;
+      const yapeExitoMonto = document.getElementById('yape-exito-monto');
+      if (yapeExitoMonto) yapeExitoMonto.textContent = `S/ ${total}`;
+      document.getElementById('btn-submit-monto').innerHTML = `S/ ${total} <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>`;
+    }
+
+    function renderAsistentes() {
+      const contenedor = document.getElementById('lista-asistentes');
+      contenedor.innerHTML = '';
+
+      // Si es solo 1 entrada, no se renderizan campos del punto 3
+      if (cantidad <= 1) return;
+
+      const nombreTitular = document.getElementById('nombre-titular').value.trim();
+      const dniTitular = document.getElementById('dni-titular').value.trim();
+
+      // Tarjeta informativa para Entrada #1 (Titular)
+      const tarjetaTitular = document.createElement('div');
+      tarjetaTitular.className = 'bg-blue-50/70 p-3 rounded-xl border border-blue-200 text-xs flex items-center justify-between';
+      tarjetaTitular.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center gap-1 font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded-md">
+            🎟️ Entrada #1
+          </span>
+          <div>
+            <p class="font-bold text-slate-800">${nombreTitular || 'Comprador (Titular)'}</p>
+            <p class="text-[11px] text-slate-500">${dniTitular ? 'DNI: ' + dniTitular : 'Datos del paso 1'}</p>
+          </div>
+        </div>
+        <span class="text-[10px] font-bold text-blue-600 uppercase bg-white px-2 py-1 rounded-md border border-blue-200">
+          Titular
+        </span>
+      `;
+      contenedor.appendChild(tarjetaTitular);
+
+      // Renderizar campos únicamente a partir del asistente #2 en adelante
+      for (let i = 1; i < cantidad; i++) {
+        const item = asistentes[i] || { nombre: '', dni: '' };
+
+        const card = document.createElement('div');
+        card.className = 'bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-2';
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="inline-flex items-center gap-1 font-bold text-blue-700 bg-blue-100/70 px-2 py-0.5 rounded-md">
+              🎟️ Entrada #${i + 1}
+            </span>
+            <span class="text-[11px] text-slate-500 font-medium">Acompañante ${i}</span>
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-slate-600 mb-0.5">Nombres y Apellidos <span class="text-rose-500">*</span></label>
+            <input 
+              type="text" 
+              required
+              value="${item.nombre || ''}" 
+              placeholder="Nombre del Acompañante ${i}"
+              oninput="actualizarAsistente(${i}, 'nombre', this.value)"
+              class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
+            >
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-slate-600 mb-0.5">DNI (opcional para menores)</label>
+            <input 
+              type="tel" 
+              maxlength="10"
+              value="${item.dni || ''}" 
+              placeholder="DNI del acompañante"
+              oninput="actualizarAsistente(${i}, 'dni', this.value)"
+              class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
+            >
+          </div>
+        `;
+        contenedor.appendChild(card);
+      }
+    }
+
+    function actualizarAsistente(idx, campo, valor) {
+      if (!asistentes[idx]) asistentes[idx] = { nombre: '', dni: '' };
+      asistentes[idx][campo] = valor;
+    }
+
+    function copiarTitularATodos() {
+      const nombre = document.getElementById('nombre-titular').value.trim();
+      const dni = document.getElementById('dni-titular').value.trim();
+      if (!nombre) {
+        alert('Ingresa primero tus datos en el paso 1.');
+        return;
+      }
+      for (let i = 1; i < cantidad; i++) {
+        if (!asistentes[i]) asistentes[i] = { nombre: '', dni: '' };
+        asistentes[i].nombre = `${nombre} (Acompañante ${i})`;
+        asistentes[i].dni = dni;
+      }
+      renderAsistentes();
+    }
+
+    async function enviarFormulario(e) {
+      e.preventDefault();
+      const btn = document.getElementById('btn-submit');
+      const nombreTitular = document.getElementById('nombre-titular').value.trim();
+      const dniTitular = document.getElementById('dni-titular').value.trim();
+      const telefono = document.getElementById('telefono').value.trim();
+
+      if (!nombreTitular || !dniTitular) {
+        alert('Por favor completa tu nombre y DNI.');
+        return;
+      }
+
+      // Preparar y validar lista de asistentes
+      let asistentesFormato = [];
+      if (cantidad === 1) {
+        // En caso de 1 sola entrada, el asistente es automáticamente el comprador titular
+        asistentesFormato = [{
+          ticket: 1,
+          nombre: nombreTitular,
+          dni: dniTitular,
+        }];
+      } else {
+        // En caso de 2 o más entradas, validar que los acompañantes tengan nombre
+        for (let i = 1; i < cantidad; i++) {
+          if (!asistentes[i] || !asistentes[i].nombre.trim()) {
+            alert(`Por favor ingresa el nombre de la persona para la Entrada #${i + 1}.`);
+            return;
+          }
+        }
+        asistentesFormato = [
+          { ticket: 1, nombre: nombreTitular, dni: dniTitular },
+          ...asistentes.slice(1, cantidad).map((a, idx) => ({
+            ticket: idx + 2,
+            nombre: a.nombre.trim(),
+            dni: (a.dni || dniTitular).trim(),
+          }))
+        ];
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = `<span class="text-sm font-semibold mx-auto flex items-center gap-2">
+        <svg class="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg>
+        Generando código...
+      </span>`;
+
+      const eventoId = eventoActual ? eventoActual.id : 1;
+      const montoTotal = Number((cantidad * precioUnitario).toFixed(2));
+
+      try {
+        const { data, error } = await db.rpc('crear_preregistro_entrada', {
+          p_evento_id: eventoId,
+          p_nombre_titular: nombreTitular,
+          p_dni_titular: dniTitular,
+          p_telefono: telefono || null,
+          p_cantidad: cantidad,
+          p_precio_unitario: precioUnitario,
+          p_monto_total: montoTotal,
+          p_asistentes: asistentesFormato,
+        });
+
+        if (error) throw error;
+
+        codigoActual = data.codigo;
+        mostrarExito(data, nombreTitular, dniTitular);
+      } catch (err) {
+        console.error('Error al registrar:', err);
+        alert('Hubo un error al generar tu pase: ' + (err.message || 'Inténtalo nuevamente.'));
+        btn.disabled = false;
+        actualizarTotales();
+      }
+    }
+
+    function mostrarExito(res, titular, dni) {
+      document.getElementById('pantalla-formulario').classList.add('hidden');
+      document.getElementById('pantalla-exito').classList.remove('hidden');
+
+      document.getElementById('exito-evento-nombre').textContent = eventoActual ? eventoActual.nombre : 'Gran Evento Deportivo 2026';
+      document.getElementById('exito-evento-lugar').textContent = eventoActual ? (eventoActual.lugar || 'Sede Oficial') : 'Sede Oficial';
+      document.getElementById('exito-codigo-id').textContent = res.codigo;
+      document.getElementById('exito-titular').textContent = titular;
+      document.getElementById('exito-dni').textContent = dni;
+      document.getElementById('exito-cantidad').textContent = `${res.cantidad} ${res.cantidad === 1 ? 'entrada' : 'entradas'}`;
+      document.getElementById('exito-total').textContent = `S/ ${Number(res.monto_total).toFixed(2)}`;
+      const yapeExitoMonto = document.getElementById('yape-exito-monto');
+      if (yapeExitoMonto) yapeExitoMonto.textContent = `S/ ${Number(res.monto_total).toFixed(2)}`;
+
+      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=8&data=${encodeURIComponent(res.codigo)}`;
+      document.getElementById('exito-qr-img').src = qrUrl;
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function copiarCodigo() {
+      if (!codigoActual) return;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(codigoActual).then(() => {
+          const btn = document.getElementById('btn-copiar-texto');
+          btn.textContent = '¡Código Copiado!';
+          setTimeout(() => { btn.textContent = 'Toca para copiar código'; }, 2000);
+        });
+      } else {
+        alert('Tu código es: ' + codigoActual);
+      }
+    }
+
+    function reiniciarFormulario() {
+      document.getElementById('form-preregistro').reset();
+      cantidad = 1;
+      asistentes = [{ nombre: '', dni: '' }];
+      document.getElementById('btn-menos').disabled = true;
+      document.getElementById('cantidad-display').textContent = '1';
+      document.getElementById('cantidad-sub').textContent = 'entrada';
+      document.getElementById('seccion-asistentes').classList.add('hidden');
+      renderAsistentes();
+      actualizarTotales();
+
+      document.getElementById('btn-submit').disabled = false;
+      document.getElementById('pantalla-exito').classList.add('hidden');
+      document.getElementById('pantalla-formulario').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    init();
+  </script>
+</body>
+</html>

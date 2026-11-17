@@ -9,7 +9,9 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import {
   Settings,
   X,
@@ -22,11 +24,16 @@ import {
   Check,
   Building2,
   Edit3,
+  Smartphone,
+  User,
+  ImageIcon,
+  Trash2,
 } from 'lucide-react-native';
 import { Evento } from '../../../types/entradas';
 import { fonts } from '../../../theme';
 import AnimatedButton from '../../AnimatedButton';
 import { supabase } from '../../../lib/supabase';
+import { uploadImagenYape } from '../../../lib/entradasService';
 
 interface ModalConfigEventoProps {
   visible: boolean;
@@ -39,6 +46,9 @@ interface ModalConfigEventoProps {
     lugar?: string;
     precio_entrada: number;
     aforo_maximo?: number | null;
+    yape_numero?: string | null;
+    yape_titular?: string | null;
+    yape_imagen_url?: string | null;
   }) => Promise<void>;
 }
 
@@ -53,6 +63,10 @@ export default function ModalConfigEvento({
   const [lugar, setLugar] = useState<string>('');
   const [precio, setPrecio] = useState<string>('');
   const [aforo, setAforo] = useState<string>('');
+  const [yapeNumero, setYapeNumero] = useState<string>('');
+  const [yapeTitular, setYapeTitular] = useState<string>('');
+  const [yapeImagenUrl, setYapeImagenUrl] = useState<string | null>(null);
+  const [yapeAsset, setYapeAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [guardando, setGuardando] = useState<boolean>(false);
 
   // Lista de Sedes registradas en BD y estado del desplegable
@@ -69,16 +83,48 @@ export default function ModalConfigEvento({
         setLugar(evento.lugar || '');
         setPrecio(evento.precio_entrada.toString());
         setAforo(evento.aforo_maximo ? evento.aforo_maximo.toString() : '');
+        setYapeNumero(evento.yape_numero || '');
+        setYapeTitular(evento.yape_titular || '');
+        setYapeImagenUrl(evento.yape_imagen_url || null);
+        setYapeAsset(null);
       } else {
         setNombre('');
         setLugar('');
         setPrecio('');
         setAforo('');
+        setYapeNumero('');
+        setYapeTitular('');
+        setYapeImagenUrl(null);
+        setYapeAsset(null);
       }
       setDesplegableAbierto(false);
       setModoPersonalizado(false);
     }
   }, [visible, evento]);
+
+  const handleElegirImagenYape = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso Denegado', 'Necesitas permiso a la galería para subir la imagen de Yape.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: false,
+        quality: 0.75,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0]) {
+        setYapeAsset(result.assets[0]);
+      }
+    } catch (err) {
+      console.warn('Error al elegir imagen de Yape:', err);
+      Alert.alert('Error', 'No se pudo seleccionar la imagen.');
+    }
+  };
 
   const cargarSedes = async () => {
     try {
@@ -133,12 +179,23 @@ export default function ModalConfigEvento({
 
     try {
       setGuardando(true);
+      let finalYapeImagenUrl = yapeImagenUrl;
+      if (yapeAsset) {
+        const uploadedUrl = await uploadImagenYape(yapeAsset, evento?.id);
+        if (uploadedUrl) {
+          finalYapeImagenUrl = uploadedUrl;
+        }
+      }
+
       await onSave({
         id: evento?.id,
         nombre: nombre.trim(),
         lugar: lugar.trim() || undefined,
         precio_entrada: precioNum,
         aforo_maximo: aforoNum,
+        yape_numero: yapeNumero.trim() || null,
+        yape_titular: yapeTitular.trim() || null,
+        yape_imagen_url: finalYapeImagenUrl,
       });
       onClose();
     } catch (err: any) {
@@ -393,6 +450,144 @@ export default function ModalConfigEvento({
                     keyboardType="numeric"
                     editable={!guardando}
                   />
+                </View>
+              </View>
+
+              {/* 5. Datos de Yape (Visibles en la Web Pública de Padres) */}
+              <View
+                style={{
+                  marginTop: 6,
+                  padding: 12,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: '#c084fc',
+                  backgroundColor: 'rgba(147, 51, 234, 0.06)',
+                  gap: 10,
+                }}
+              >
+                <Text style={[styles.fieldLabel, { color: '#7e22ce', marginBottom: 0 }]}>
+                  💜 Datos de Pago Yape (Visible en la Web de Padres)
+                </Text>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={[styles.fieldLabel, { color: theme.text }]}>Número de Yape</Text>
+                  <View
+                    style={[
+                      styles.inputBox,
+                      { backgroundColor: theme.background, borderColor: theme.border },
+                    ]}
+                  >
+                    <Smartphone size={15} color="#7e22ce" />
+                    <TextInput
+                      style={[styles.input, { color: theme.text }]}
+                      placeholder="Ej: 987 654 321"
+                      placeholderTextColor={theme.textMuted}
+                      value={yapeNumero}
+                      onChangeText={setYapeNumero}
+                      keyboardType="phone-pad"
+                      editable={!guardando}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <Text style={[styles.fieldLabel, { color: theme.text }]}>Titular de Yape</Text>
+                  <View
+                    style={[
+                      styles.inputBox,
+                      { backgroundColor: theme.background, borderColor: theme.border },
+                    ]}
+                  >
+                    <User size={15} color="#7e22ce" />
+                    <TextInput
+                      style={[styles.input, { color: theme.text }]}
+                      placeholder="Ej: Academia Campeones / Juan Pérez"
+                      placeholderTextColor={theme.textMuted}
+                      value={yapeTitular}
+                      onChangeText={setYapeTitular}
+                      editable={!guardando}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.fieldGroup}>
+                  <View style={styles.labelWithAction}>
+                    <Text style={[styles.fieldLabel, { color: theme.text }]}>
+                      Imagen QR / Datos de Yape
+                    </Text>
+                    {(yapeAsset || yapeImagenUrl) && (
+                      <TouchableOpacity
+                        onPress={() => {
+                          setYapeAsset(null);
+                          setYapeImagenUrl(null);
+                        }}
+                        disabled={guardando}
+                        style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                      >
+                        <Trash2 size={13} color="#ef4444" />
+                        <Text style={{ fontSize: 11, fontFamily: fonts.semiBold, color: '#ef4444' }}>
+                          Quitar
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {yapeAsset || yapeImagenUrl ? (
+                    <View style={{ alignItems: 'center', gap: 8 }}>
+                      <Image
+                        source={{ uri: yapeAsset ? yapeAsset.uri : yapeImagenUrl! }}
+                        style={{
+                          width: '100%',
+                          height: 190,
+                          borderRadius: 10,
+                          backgroundColor: '#ffffff',
+                        }}
+                        resizeMode="contain"
+                      />
+                      <TouchableOpacity
+                        onPress={handleElegirImagenYape}
+                        disabled={guardando}
+                        style={{
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 6,
+                          paddingHorizontal: 12,
+                          paddingVertical: 7,
+                          borderRadius: 8,
+                          backgroundColor: '#f3e8ff',
+                          borderWidth: 1,
+                          borderColor: '#d8b4fe',
+                        }}
+                      >
+                        <ImageIcon size={14} color="#7e22ce" />
+                        <Text style={{ fontSize: 12, fontFamily: fonts.semiBold, color: '#7e22ce' }}>
+                          Cambiar imagen de Yape
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      onPress={handleElegirImagenYape}
+                      disabled={guardando}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        paddingVertical: 14,
+                        borderRadius: 10,
+                        borderWidth: 1.5,
+                        borderStyle: 'dashed',
+                        borderColor: '#c084fc',
+                        backgroundColor: theme.background,
+                      }}
+                    >
+                      <ImageIcon size={18} color="#7e22ce" />
+                      <Text style={{ fontSize: 12, fontFamily: fonts.semiBold, color: '#7e22ce' }}>
+                        Subir Imagen de QR / Número Yape
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             </View>

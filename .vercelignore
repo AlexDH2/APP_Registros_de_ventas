@@ -1,0 +1,4 @@
+.git
+.expo
+node_modules
+!dist/assets/node_modules/**

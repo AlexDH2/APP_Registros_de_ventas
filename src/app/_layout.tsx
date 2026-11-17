@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Platform } from 'react-native';
 import {
   useFonts,
   Poppins_400Regular,
@@ -65,7 +65,7 @@ export default function Layout() {
     Poppins_800ExtraBold,
   });
 
-  if (!fontsLoaded) {
+  if (!fontsLoaded && Platform.OS !== 'web') {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0d1b2a' }}>
         <ActivityIndicator size="large" color="#f59e0b" />
