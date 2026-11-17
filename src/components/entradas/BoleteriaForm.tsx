@@ -24,6 +24,7 @@ import {
   Search,
   Sparkles,
   RotateCcw,
+  ScanLine,
 } from 'lucide-react-native';
 import {
   Evento,
@@ -35,6 +36,7 @@ import {
 import { fonts } from '../../theme';
 import AnimatedButton from '../AnimatedButton';
 import ComprobantePicker from './ComprobantePicker';
+import QrScannerModal from './QrScannerModal';
 import { buscarPreRegistroPorCodigo } from '../../lib/entradasService';
 
 interface BoleteriaFormProps {
@@ -64,6 +66,7 @@ export default function BoleteriaForm({
   const [codigoBusqueda, setCodigoBusqueda] = useState<string>('');
   const [buscandoCodigo, setBuscandoCodigo] = useState<boolean>(false);
   const [preRegistroCargado, setPreRegistroCargado] = useState<PreRegistroEntrada | null>(null);
+  const [scannerVisible, setScannerVisible] = useState<boolean>(false);
 
   // El precio unitario proviene DIRECTAMENTE de la base de datos (evento.precio_entrada)
   const precioUnitario = evento.precio_entrada;
@@ -135,6 +138,14 @@ export default function BoleteriaForm({
     setAsistentes([{ nombre: '', dni: '' }]);
     setMontoRecibido('');
     setImage(null);
+  };
+
+  const handleQrEscaneado = (codigoLeido: string) => {
+    setScannerVisible(false);
+    const limpio = (codigoLeido || '').trim();
+    if (!limpio) return;
+    setCodigoBusqueda(limpio);
+    handleBuscarPreRegistro(limpio);
   };
 
   const handleIncrement = () => {
@@ -300,42 +311,61 @@ export default function BoleteriaForm({
             </View>
           </View>
         ) : (
-          <View style={styles.preregistroInputRow}>
-            <View
-              style={[
-                styles.preregistroInputBox,
-                { backgroundColor: theme.card, borderColor: theme.border },
-              ]}
-            >
-              <QrCode size={16} color={theme.textMuted} />
-              <TextInput
-                style={[styles.preregistroInput, { color: theme.text }]}
-                placeholder="ID (ej: CCL-1001 o 1001) o DNI"
-                placeholderTextColor={theme.textMuted}
-                value={codigoBusqueda}
-                onChangeText={setCodigoBusqueda}
-                autoCapitalize="characters"
-                onSubmitEditing={() => handleBuscarPreRegistro()}
-                returnKeyType="search"
-              />
-            </View>
+          <View style={{ gap: 8 }}>
             <TouchableOpacity
-              style={[styles.preregistroSearchBtn, { backgroundColor: theme.primary }]}
-              onPress={() => handleBuscarPreRegistro()}
+              style={[styles.preregistroScanBtn, { backgroundColor: '#0f172a' }]}
+              onPress={() => setScannerVisible(true)}
               disabled={buscandoCodigo || procesando}
+              activeOpacity={0.8}
             >
-              {buscandoCodigo ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <>
-                  <Search size={15} color="#ffffff" />
-                  <Text style={styles.preregistroSearchBtnText}>Cargar</Text>
-                </>
-              )}
+              <ScanLine size={18} color="#38bdf8" />
+              <Text style={styles.preregistroScanBtnText}>Escanear QR del Comprador</Text>
             </TouchableOpacity>
+
+            <View style={styles.preregistroInputRow}>
+              <View
+                style={[
+                  styles.preregistroInputBox,
+                  { backgroundColor: theme.card, borderColor: theme.border },
+                ]}
+              >
+                <QrCode size={16} color={theme.textMuted} />
+                <TextInput
+                  style={[styles.preregistroInput, { color: theme.text }]}
+                  placeholder="O escribe ID (ej: 1001) o DNI"
+                  placeholderTextColor={theme.textMuted}
+                  value={codigoBusqueda}
+                  onChangeText={setCodigoBusqueda}
+                  autoCapitalize="characters"
+                  onSubmitEditing={() => handleBuscarPreRegistro()}
+                  returnKeyType="search"
+                />
+              </View>
+              <TouchableOpacity
+                style={[styles.preregistroSearchBtn, { backgroundColor: theme.primary }]}
+                onPress={() => handleBuscarPreRegistro()}
+                disabled={buscandoCodigo || procesando}
+              >
+                {buscandoCodigo ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <>
+                    <Search size={15} color="#ffffff" />
+                    <Text style={styles.preregistroSearchBtnText}>Cargar</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </View>
+
+      {/* Modal Lector de Código QR */}
+      <QrScannerModal
+        visible={scannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onScan={handleQrEscaneado}
+      />
 
       {/* 1. Selector de Cantidad */}
       <View style={styles.sectionHeader}>
@@ -979,5 +1009,19 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 13,
     fontFamily: fonts.bold,
+  },
+  preregistroScanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 44,
+    borderRadius: 10,
+  },
+  preregistroScanBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontFamily: fonts.bold,
+    letterSpacing: 0.3,
   },
 });

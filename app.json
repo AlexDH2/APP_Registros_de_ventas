@@ -46,6 +46,13 @@
           "photosPermission": "La aplicación necesita acceso a tus fotos para adjuntar comprobantes.",
           "cameraPermission": "La aplicación necesita acceso a tu cámara para fotografiar comprobantes y entregas."
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "La aplicación necesita acceso a la cámara para escanear códigos QR de pre-registro de entradas.",
+          "recordAudioAndroid": false
+        }
       ]
     ],
     "extra": {
