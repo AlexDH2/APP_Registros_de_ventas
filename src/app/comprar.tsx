@@ -16,7 +16,6 @@ import {
   Ticket,
   User,
   CreditCard as IdCard,
-  Phone,
   Plus,
   Minus,
   CheckCircle2,
@@ -38,7 +37,6 @@ export default function ComprarEntradasScreen() {
   // Datos del Comprador (Padre / Titular)
   const [nombreTitular, setNombreTitular] = useState<string>('');
   const [dniTitular, setDniTitular] = useState<string>('');
-  const [telefono, setTelefono] = useState<string>('');
 
   // Cantidad y Asistentes
   const [cantidad, setCantidad] = useState<number>(1);
@@ -297,7 +295,7 @@ export default function ComprarEntradasScreen() {
       return;
     }
 
-    // Validar asistentes (solo requeridos para acompañantes si cantidad >= 2)
+    // Preparar lista de asistentes (los nombres de acompañantes son opcionales)
     let asistentesLimpio: AsistenteTicket[] = [];
     if (cantidad === 1) {
       asistentesLimpio = [{
@@ -306,23 +304,16 @@ export default function ComprarEntradasScreen() {
         dni: dniTitular.trim(),
       }];
     } else {
-      for (let i = 1; i < cantidad; i++) {
-        const a = asistentes[i];
-        if (!a || !a.nombre?.trim()) {
-          Alert.alert(
-            'Faltan datos de acompañante',
-            `Por favor ingresa el nombre de la persona para la Entrada #${i + 1}.`
-          );
-          return;
-        }
-      }
       asistentesLimpio = [
         { ticket: 1, nombre: nombreTitular.trim(), dni: dniTitular.trim() },
-        ...asistentes.slice(1, cantidad).map((a, idx) => ({
-          ticket: idx + 2,
-          nombre: a.nombre.trim(),
-          dni: (a.dni || dniTitular).trim(),
-        })),
+        ...Array.from({ length: cantidad - 1 }).map((_, idx) => {
+          const a = asistentes[idx + 1] || { nombre: '', dni: '' };
+          return {
+            ticket: idx + 2,
+            nombre: (a.nombre || '').trim(),
+            dni: (a.dni || '').trim(),
+          };
+        }),
       ];
     }
 
@@ -332,7 +323,6 @@ export default function ComprarEntradasScreen() {
         eventoId: evento.id,
         nombreTitular: nombreTitular.trim(),
         dniTitular: dniTitular.trim(),
-        telefono: telefono.trim(),
         cantidad,
         precioUnitario,
         asistentes: asistentesLimpio,
@@ -351,7 +341,6 @@ export default function ComprarEntradasScreen() {
     setPaseGenerado(null);
     setNombreTitular('');
     setDniTitular('');
-    setTelefono('');
     setCantidad(1);
     setAsistentes([{ nombre: '', dni: '' }]);
   };
@@ -550,39 +539,21 @@ export default function ComprarEntradasScreen() {
             </View>
           </View>
 
-          <View style={styles.inputRow}>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.inputLabel}>
-                DNI <Text style={styles.required}>*</Text>
-              </Text>
-              <View style={styles.inputContainer}>
-                <IdCard size={18} color="#94a3b8" />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="8 dígitos"
-                  placeholderTextColor="#94a3b8"
-                  keyboardType="numeric"
-                  maxLength={10}
-                  value={dniTitular}
-                  onChangeText={setDniTitular}
-                />
-              </View>
-            </View>
-
-            <View style={[styles.inputGroup, { flex: 1.2 }]}>
-              <Text style={styles.inputLabel}>Teléfono / WhatsApp</Text>
-              <View style={styles.inputContainer}>
-                <Phone size={18} color="#94a3b8" />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Ej. 987654321"
-                  placeholderTextColor="#94a3b8"
-                  keyboardType="phone-pad"
-                  maxLength={12}
-                  value={telefono}
-                  onChangeText={setTelefono}
-                />
-              </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>
+              DNI <Text style={styles.required}>*</Text>
+            </Text>
+            <View style={styles.inputContainer}>
+              <IdCard size={18} color="#94a3b8" />
+              <TextInput
+                style={styles.textInput}
+                placeholder="8 dígitos"
+                placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
+                maxLength={10}
+                value={dniTitular}
+                onChangeText={setDniTitular}
+              />
             </View>
           </View>
         </View>
@@ -686,11 +657,11 @@ export default function ComprarEntradasScreen() {
 
                     <View style={styles.inputGroup}>
                       <Text style={styles.inputLabelSm}>
-                        Nombres y Apellidos <Text style={styles.required}>*</Text>
+                        Nombres y Apellidos (opcional)
                       </Text>
                       <TextInput
                         style={styles.textInputSm}
-                        placeholder={`Nombre del Acompañante ${idx}`}
+                        placeholder={`Nombre del Acompañante ${idx} (opcional)`}
                         placeholderTextColor="#94a3b8"
                         value={a.nombre}
                         onChangeText={(val) => handleUpdateAsistente(idx, 'nombre', val)}
@@ -699,10 +670,10 @@ export default function ComprarEntradasScreen() {
                     </View>
 
                     <View style={styles.inputGroup}>
-                      <Text style={styles.inputLabelSm}>DNI (opcional para menores)</Text>
+                      <Text style={styles.inputLabelSm}>DNI (opcional)</Text>
                       <TextInput
                         style={styles.textInputSm}
-                        placeholder="DNI del acompañante"
+                        placeholder="DNI del acompañante (opcional)"
                         placeholderTextColor="#94a3b8"
                         keyboardType="numeric"
                         maxLength={10}

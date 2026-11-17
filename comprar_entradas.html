@@ -79,34 +79,20 @@
               >
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">
-                  DNI <span class="text-rose-500">*</span>
-                </label>
-                <input 
-                  type="tel" 
-                  id="dni-titular" 
-                  required 
-                  maxlength="10" 
-                  pattern="[0-9]{8,10}"
-                  placeholder="8 dígitos" 
-                  oninput="if(cantidad >= 2) renderAsistentes()"
-                  class="w-full text-sm px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-800 placeholder-slate-400 font-medium transition"
-                >
-              </div>
-              <div>
-                <label class="block text-xs font-semibold text-slate-700 mb-1">
-                  Celular / WhatsApp
-                </label>
-                <input 
-                  type="tel" 
-                  id="telefono" 
-                  maxlength="12" 
-                  placeholder="Ej. 987654321" 
-                  class="w-full text-sm px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-800 placeholder-slate-400 font-medium transition"
-                >
-              </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">
+                DNI <span class="text-rose-500">*</span>
+              </label>
+              <input 
+                type="tel" 
+                id="dni-titular" 
+                required 
+                maxlength="10" 
+                pattern="[0-9]{8,10}"
+                placeholder="8 dígitos" 
+                oninput="if(cantidad >= 2) renderAsistentes()"
+                class="w-full text-sm px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 text-slate-800 placeholder-slate-400 font-medium transition"
+              >
             </div>
           </div>
         </div>
@@ -580,23 +566,22 @@
             <span class="text-[11px] text-slate-500 font-medium">Acompañante ${i}</span>
           </div>
           <div>
-            <label class="block text-[11px] font-medium text-slate-600 mb-0.5">Nombres y Apellidos <span class="text-rose-500">*</span></label>
+            <label class="block text-[11px] font-medium text-slate-600 mb-0.5">Nombres y Apellidos (opcional)</label>
             <input 
               type="text" 
-              required
               value="${item.nombre || ''}" 
-              placeholder="Nombre del Acompañante ${i}"
+              placeholder="Nombre del Acompañante ${i} (opcional)"
               oninput="actualizarAsistente(${i}, 'nombre', this.value)"
               class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
             >
           </div>
           <div>
-            <label class="block text-[11px] font-medium text-slate-600 mb-0.5">DNI (opcional para menores)</label>
+            <label class="block text-[11px] font-medium text-slate-600 mb-0.5">DNI (opcional)</label>
             <input 
               type="tel" 
               maxlength="10"
               value="${item.dni || ''}" 
-              placeholder="DNI del acompañante"
+              placeholder="DNI del acompañante (opcional)"
               oninput="actualizarAsistente(${i}, 'dni', this.value)"
               class="w-full text-xs px-2.5 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
             >
@@ -631,37 +616,31 @@
       const btn = document.getElementById('btn-submit');
       const nombreTitular = document.getElementById('nombre-titular').value.trim();
       const dniTitular = document.getElementById('dni-titular').value.trim();
-      const telefono = document.getElementById('telefono').value.trim();
 
       if (!nombreTitular || !dniTitular) {
         alert('Por favor completa tu nombre y DNI.');
         return;
       }
 
-      // Preparar y validar lista de asistentes
+      // Preparar lista de asistentes (los nombres de acompañantes son opcionales)
       let asistentesFormato = [];
       if (cantidad === 1) {
-        // En caso de 1 sola entrada, el asistente es automáticamente el comprador titular
         asistentesFormato = [{
           ticket: 1,
           nombre: nombreTitular,
           dni: dniTitular,
         }];
       } else {
-        // En caso de 2 o más entradas, validar que los acompañantes tengan nombre
-        for (let i = 1; i < cantidad; i++) {
-          if (!asistentes[i] || !asistentes[i].nombre.trim()) {
-            alert(`Por favor ingresa el nombre de la persona para la Entrada #${i + 1}.`);
-            return;
-          }
-        }
         asistentesFormato = [
           { ticket: 1, nombre: nombreTitular, dni: dniTitular },
-          ...asistentes.slice(1, cantidad).map((a, idx) => ({
-            ticket: idx + 2,
-            nombre: a.nombre.trim(),
-            dni: (a.dni || dniTitular).trim(),
-          }))
+          ...Array.from({ length: cantidad - 1 }).map((_, idx) => {
+            const a = asistentes[idx + 1] || { nombre: '', dni: '' };
+            return {
+              ticket: idx + 2,
+              nombre: (a.nombre || '').trim(),
+              dni: (a.dni || '').trim(),
+            };
+          })
         ];
       }
 
@@ -679,7 +658,7 @@
           p_evento_id: eventoId,
           p_nombre_titular: nombreTitular,
           p_dni_titular: dniTitular,
-          p_telefono: telefono || null,
+          p_telefono: null,
           p_cantidad: cantidad,
           p_precio_unitario: precioUnitario,
           p_monto_total: montoTotal,
