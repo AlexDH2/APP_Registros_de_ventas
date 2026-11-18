@@ -360,6 +360,127 @@ export async function guardarConfiguracionEvento(datos: {
 }
 
 /**
+ * Lista todos los eventos (activos y finalizados) para el selector e historial administrativo.
+ */
+export async function fetchTodosLosEventos(): Promise<Evento[]> {
+  const { data, error } = await supabase
+    .from('eventos')
+    .select('*')
+    .order('id', { ascending: false });
+
+  if (error) {
+    console.error('Error al listar eventos:', error);
+    throw error;
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    nombre: row.nombre,
+    lugar: row.lugar,
+    precio_entrada: Number(row.precio_entrada),
+    aforo_maximo: row.aforo_maximo ? Number(row.aforo_maximo) : null,
+    estado: row.estado,
+    yape_numero: row.yape_numero || null,
+    yape_titular: row.yape_titular || null,
+    yape_imagen_url: row.yape_imagen_url || null,
+    created_at: row.created_at,
+  }));
+}
+
+/**
+ * Crea un nuevo evento ACTIVO desde cero (Ticket #1) y pasa los eventos activos previos a FINALIZADO
+ * conservando intacto su historial y ventas.
+ */
+export async function crearNuevoEventoYFinalizarAnteriores(datos: {
+  nombre: string;
+  lugar?: string;
+  precio_entrada: number;
+  aforo_maximo?: number | null;
+  yape_numero?: string | null;
+  yape_titular?: string | null;
+  yape_imagen_url?: string | null;
+}): Promise<Evento> {
+  // 1. Marcar cualquier evento ACTIVO anterior como FINALIZADO
+  const { error: errClose } = await supabase
+    .from('eventos')
+    .update({ estado: 'FINALIZADO' })
+    .eq('estado', 'ACTIVO');
+
+  if (errClose) {
+    console.error('Error al finalizar eventos previos:', errClose);
+    throw errClose;
+  }
+
+  // 2. Insertar el nuevo evento ACTIVO con contador de tickets limpio en 0
+  const payload = {
+    nombre: datos.nombre.trim(),
+    lugar: datos.lugar?.trim() || null,
+    precio_entrada: datos.precio_entrada,
+    aforo_maximo: datos.aforo_maximo || null,
+    estado: 'ACTIVO',
+    ultimo_ticket_emitido: 0,
+    yape_numero: datos.yape_numero?.trim() || null,
+    yape_titular: datos.yape_titular?.trim() || null,
+    yape_imagen_url: datos.yape_imagen_url || null,
+  };
+
+  const { data, error } = await supabase
+    .from('eventos')
+    .insert([payload])
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error al crear nuevo evento:', error);
+    throw error;
+  }
+
+  return {
+    id: data.id,
+    nombre: data.nombre,
+    lugar: data.lugar,
+    precio_entrada: Number(data.precio_entrada),
+    aforo_maximo: data.aforo_maximo ? Number(data.aforo_maximo) : null,
+    estado: data.estado,
+    yape_numero: data.yape_numero || null,
+    yape_titular: data.yape_titular || null,
+    yape_imagen_url: data.yape_imagen_url || null,
+    created_at: data.created_at,
+  };
+}
+
+/**
+ * Reactiva un evento existente y pasa los demás eventos activos a FINALIZADO.
+ */
+export async function activarEvento(eventoId: number): Promise<void> {
+  const { error: errClose } = await supabase
+    .from('eventos')
+    .update({ estado: 'FINALIZADO' })
+    .eq('estado', 'ACTIVO');
+
+  if (errClose) throw errClose;
+
+  const { error } = await supabase
+    .from('eventos')
+    .update({ estado: 'ACTIVO' })
+    .eq('id', eventoId);
+
+  if (error) throw error;
+}
+
+/**
+ * Finaliza un evento activo (lo deja solo para consulta histórica).
+ */
+export async function finalizarEvento(eventoId: number): Promise<void> {
+  const { error } = await supabase
+    .from('eventos')
+    .update({ estado: 'FINALIZADO' })
+    .eq('id', eventoId);
+
+  if (error) throw error;
+}
+
+/**
  * Anula una venta de entradas en la base de datos (función administrativa).
  */
 export async function anularVentaEntrada(ventaId: number, motivo: string): Promise<void> {

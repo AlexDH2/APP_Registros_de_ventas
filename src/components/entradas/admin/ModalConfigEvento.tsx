@@ -38,6 +38,12 @@ import { uploadImagenYape } from '../../../lib/entradasService';
 interface ModalConfigEventoProps {
   visible: boolean;
   evento: Evento | null;
+  modoCreacion?: boolean;
+  yapePrevio?: {
+    numero?: string | null;
+    titular?: string | null;
+    imagenUrl?: string | null;
+  } | null;
   theme: any;
   onClose: () => void;
   onSave: (datos: {
@@ -55,10 +61,13 @@ interface ModalConfigEventoProps {
 export default function ModalConfigEvento({
   visible,
   evento,
+  modoCreacion = false,
+  yapePrevio = null,
   theme,
   onClose,
   onSave,
 }: ModalConfigEventoProps) {
+  const esNuevo = modoCreacion || !evento;
   const [nombre, setNombre] = useState<string>('');
   const [lugar, setLugar] = useState<string>('');
   const [precio, setPrecio] = useState<string>('');
@@ -78,7 +87,7 @@ export default function ModalConfigEvento({
   useEffect(() => {
     if (visible) {
       cargarSedes();
-      if (evento) {
+      if (!esNuevo && evento) {
         setNombre(evento.nombre);
         setLugar(evento.lugar || '');
         setPrecio(evento.precio_entrada.toString());
@@ -92,15 +101,15 @@ export default function ModalConfigEvento({
         setLugar('');
         setPrecio('');
         setAforo('');
-        setYapeNumero('');
-        setYapeTitular('');
-        setYapeImagenUrl(null);
+        setYapeNumero(yapePrevio?.numero || '');
+        setYapeTitular(yapePrevio?.titular || '');
+        setYapeImagenUrl(yapePrevio?.imagenUrl || null);
         setYapeAsset(null);
       }
       setDesplegableAbierto(false);
       setModoPersonalizado(false);
     }
-  }, [visible, evento]);
+  }, [visible, evento, esNuevo, yapePrevio]);
 
   const handleElegirImagenYape = async () => {
     try {
@@ -181,14 +190,14 @@ export default function ModalConfigEvento({
       setGuardando(true);
       let finalYapeImagenUrl = yapeImagenUrl;
       if (yapeAsset) {
-        const uploadedUrl = await uploadImagenYape(yapeAsset, evento?.id);
+        const uploadedUrl = await uploadImagenYape(yapeAsset, esNuevo ? undefined : evento?.id);
         if (uploadedUrl) {
           finalYapeImagenUrl = uploadedUrl;
         }
       }
 
       await onSave({
-        id: evento?.id,
+        id: esNuevo ? undefined : evento?.id,
         nombre: nombre.trim(),
         lugar: lugar.trim() || undefined,
         precio_entrada: precioNum,
@@ -219,7 +228,7 @@ export default function ModalConfigEvento({
               <View style={styles.headerTitleRow}>
                 <Settings size={18} color={theme.primary} />
                 <Text style={[styles.title, { color: theme.text }]}>
-                  {evento ? 'Configurar Evento en DB' : 'Crear Evento en DB'}
+                  {esNuevo ? 'Crear Nuevo Evento' : 'Editar Evento Actual'}
                 </Text>
               </View>
               <TouchableOpacity onPress={onClose} disabled={guardando}>
@@ -228,8 +237,9 @@ export default function ModalConfigEvento({
             </View>
 
             <Text style={[styles.subtitle, { color: theme.textMuted }]}>
-              Los cambios de precio, nombre y aforo se actualizan directamente en la base de datos y
-              se reflejan en tiempo real para todos los colaboradores.
+              {esNuevo
+                ? 'Al crear este nuevo evento, el evento activo anterior pasará a FINALIZADO conservando todo su historial y las nuevas entradas empezarán desde el Ticket #1.'
+                : 'Los cambios de precio, nombre, aforo y datos de Yape se actualizan en tiempo real tanto en la Boletería como en la web pública de padres.'}
             </Text>
 
             {/* Formulario */}
