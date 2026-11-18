@@ -459,18 +459,45 @@
       });
     }
 
+    function copiarTextoSeguro(texto, onExito) {
+      if (!texto) return;
+      const fallbackCopiar = () => {
+        try {
+          const textarea = document.createElement('textarea');
+          textarea.value = texto;
+          textarea.setAttribute('readonly', '');
+          textarea.style.position = 'fixed';
+          textarea.style.top = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          textarea.setSelectionRange(0, 99999);
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+          if (onExito) onExito();
+        } catch (e) {
+          alert('Copia manualmente: ' + texto);
+        }
+      };
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(texto).then(() => {
+          if (onExito) onExito();
+        }).catch(() => {
+          fallbackCopiar();
+        });
+      } else {
+        fallbackCopiar();
+      }
+    }
+
     function copiarNumeroYape(btnEl) {
       if (!yapeNumeroActual) return;
       const soloDigitos = yapeNumeroActual.replace(/\s+/g, '');
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(soloDigitos).then(() => {
-          const original = btnEl.textContent;
-          btnEl.textContent = '✅ ¡Copiado!';
-          setTimeout(() => { btnEl.textContent = original; }, 2000);
-        });
-      } else {
-        alert('Número de Yape: ' + yapeNumeroActual);
-      }
+      copiarTextoSeguro(soloDigitos, () => {
+        const original = btnEl.textContent;
+        btnEl.textContent = '✅ ¡Copiado!';
+        setTimeout(() => { btnEl.textContent = original; }, 2000);
+      });
     }
 
     function abrirZoomYape(src) {
@@ -512,14 +539,32 @@
       actualizarTotales();
     }
 
+    function restaurarBotonSubmit() {
+      const btn = document.getElementById('btn-submit');
+      const total = (cantidad * precioUnitario).toFixed(2);
+      if (!btn) return;
+      btn.disabled = false;
+      btn.innerHTML = `
+        <span class="text-sm sm:text-base">Generar Pase de Ingreso</span>
+        <span id="btn-submit-monto" class="bg-blue-500/50 px-2.5 py-1 rounded-lg text-xs sm:text-sm font-extrabold flex items-center gap-1.5">
+          S/ ${total}
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
+        </span>
+      `;
+    }
+
     function actualizarTotales() {
       const total = (cantidad * precioUnitario).toFixed(2);
-      document.getElementById('monto-total-display').textContent = `S/ ${total}`;
+      const montoDisplay = document.getElementById('monto-total-display');
+      if (montoDisplay) montoDisplay.textContent = `S/ ${total}`;
       const yapeFormMonto = document.getElementById('yape-form-monto');
       if (yapeFormMonto) yapeFormMonto.textContent = `S/ ${total}`;
       const yapeExitoMonto = document.getElementById('yape-exito-monto');
       if (yapeExitoMonto) yapeExitoMonto.textContent = `S/ ${total}`;
-      document.getElementById('btn-submit-monto').innerHTML = `S/ ${total} <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>`;
+      const btnSubmitMonto = document.getElementById('btn-submit-monto');
+      if (btnSubmitMonto) {
+        btnSubmitMonto.innerHTML = `S/ ${total} <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>`;
+      }
     }
 
     function renderAsistentes() {
@@ -672,8 +717,7 @@
       } catch (err) {
         console.error('Error al registrar:', err);
         alert('Hubo un error al generar tu pase: ' + (err.message || 'Inténtalo nuevamente.'));
-        btn.disabled = false;
-        actualizarTotales();
+        restaurarBotonSubmit();
       }
     }
 
@@ -699,29 +743,28 @@
 
     function copiarCodigo() {
       if (!codigoActual) return;
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(codigoActual).then(() => {
-          const btn = document.getElementById('btn-copiar-texto');
-          btn.textContent = '¡Código Copiado!';
+      copiarTextoSeguro(codigoActual, () => {
+        const btn = document.getElementById('btn-copiar-texto');
+        if (btn) {
+          btn.textContent = '✅ ¡Código Copiado!';
           setTimeout(() => { btn.textContent = 'Toca para copiar código'; }, 2000);
-        });
-      } else {
-        alert('Tu código es: ' + codigoActual);
-      }
+        }
+      });
     }
 
     function reiniciarFormulario() {
       document.getElementById('form-preregistro').reset();
       cantidad = 1;
       asistentes = [{ nombre: '', dni: '' }];
+      codigoActual = '';
       document.getElementById('btn-menos').disabled = true;
       document.getElementById('cantidad-display').textContent = '1';
       document.getElementById('cantidad-sub').textContent = 'entrada';
       document.getElementById('seccion-asistentes').classList.add('hidden');
+      restaurarBotonSubmit();
       renderAsistentes();
       actualizarTotales();
 
-      document.getElementById('btn-submit').disabled = false;
       document.getElementById('pantalla-exito').classList.add('hidden');
       document.getElementById('pantalla-formulario').classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'smooth' });
