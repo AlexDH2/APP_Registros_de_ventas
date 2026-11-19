@@ -254,15 +254,6 @@ export default function AdminEventosEntradasScreen() {
         </View>
 
         <View style={styles.topBarActions}>
-          <TouchableOpacity
-            style={[styles.newEventHeaderBtn, { backgroundColor: theme.primary }]}
-            onPress={abrirModalCrearNuevo}
-            activeOpacity={0.8}
-          >
-            <Plus size={15} color="#ffffff" />
-            <Text style={styles.newEventHeaderBtnText}>Nuevo</Text>
-          </TouchableOpacity>
-
           {evento && (
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: theme.primaryLight }]}
