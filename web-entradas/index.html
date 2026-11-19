@@ -51,6 +51,35 @@
   <!-- CONTENEDOR PRINCIPAL -->
   <div class="max-w-md mx-auto px-4 pt-4 sm:pt-6">
 
+    <!-- BANNER SI YA TIENE UN PASE GUARDADO EN ESTE CELULAR -->
+    <div id="banner-pase-guardado" class="hidden bg-emerald-50 border-2 border-emerald-300 rounded-3xl p-4 mb-4 shadow-sm flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5">
+        <span class="text-2xl">🎟️</span>
+        <div>
+          <p class="text-xs font-black text-emerald-950">Pase activo en este teléfono</p>
+          <p class="text-xs text-emerald-700 font-medium">Código: <b id="pase-guardado-codigo" class="text-emerald-900 font-black">CCL-XXXX</b></p>
+        </div>
+      </div>
+      <button 
+        type="button" 
+        onclick="verPaseGuardado()" 
+        class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs active:scale-95 touch-press"
+      >
+        Ver mi pase
+      </button>
+    </div>
+
+    <!-- BOTÓN PARA RECUPERAR PASE CON DNI -->
+    <div class="text-center mb-4">
+      <button 
+        type="button" 
+        onclick="abrirModalRecuperar()" 
+        class="inline-flex items-center gap-1.5 text-xs font-bold text-blue-700 hover:text-blue-800 bg-white hover:bg-blue-50 px-4 py-2.5 rounded-2xl border border-blue-200 shadow-xs transition active:scale-95 touch-press"
+      >
+        🔍 ¿Cerraste tu pase sin guardarlo? <u>Recupéralo con tu DNI</u>
+      </button>
+    </div>
+
     <!-- ESTADO 1: FORMULARIO DE REGISTRO (SENCILLO Y ACCESIBLE PARA PADRES) -->
     <div id="pantalla-formulario">
       
@@ -436,6 +465,46 @@
     <img id="modal-zoom-img" src="" alt="Yape Ampliado" class="max-w-full max-h-[82vh] rounded-2xl bg-white p-2 shadow-2xl object-contain">
   </div>
 
+  <!-- MODAL RECUPERAR PASE CON DNI (PARA PADRES QUE CERRARON LA PÁGINA) -->
+  <div id="modal-recuperar" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border-2 border-slate-200 animate-in fade-in zoom-in-95 duration-150">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <span class="text-xl">🔍</span>
+          <h3 class="text-base font-black text-slate-900">Recuperar Mi Pase</h3>
+        </div>
+        <button type="button" onclick="cerrarModalRecuperar()" class="text-slate-400 hover:text-slate-700 p-1.5 rounded-xl text-lg font-bold">
+          ✕
+        </button>
+      </div>
+      <p class="text-xs text-slate-600 mb-4 font-medium leading-relaxed">
+        Si ya te registraste pero no guardaste tu código o cerraste la ventana, ingresa tu DNI para volver a ver tu pase:
+      </p>
+      <form onsubmit="ejecutarRecuperacionDni(event)" class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-800 mb-1">Número de DNI del Comprador</label>
+          <input 
+            type="tel" 
+            id="input-recuperar-dni" 
+            required 
+            maxlength="10" 
+            pattern="[0-9]{8,10}"
+            inputmode="numeric" 
+            placeholder="8 dígitos de tu DNI" 
+            class="w-full text-base px-4 py-3 rounded-2xl border-2 border-slate-300 focus:outline-none focus:border-blue-600 font-bold bg-slate-50 text-slate-900"
+          >
+        </div>
+        <button 
+          type="submit" 
+          id="btn-recuperar-submit" 
+          class="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-black shadow-md active:scale-95 transition touch-press"
+        >
+          Buscar mi pase
+        </button>
+      </form>
+    </div>
+  </div>
+
   <script>
     // CONFIGURACIÓN SUPABASE
     const SUPABASE_URL = 'https://fqhspcbxtggckuurdbtc.supabase.co';
@@ -479,6 +548,22 @@
 
       renderAsistentes();
       actualizarTotales();
+
+      // Comprobar si hay un pase guardado en este teléfono/navegador
+      try {
+        const guardadoRaw = localStorage.getItem('ultimo_pase_guardado');
+        if (guardadoRaw) {
+          const g = JSON.parse(guardadoRaw);
+          if (g && g.res && g.res.codigo) {
+            const banner = document.getElementById('banner-pase-guardado');
+            const codigoEl = document.getElementById('pase-guardado-codigo');
+            if (banner && codigoEl) {
+              codigoEl.textContent = g.res.codigo;
+              banner.classList.remove('hidden');
+            }
+          }
+        }
+      } catch (e) {}
     }
 
     function configurarDatosYape(data) {
@@ -606,6 +691,22 @@
 
       renderAsistentes();
       actualizarTotales();
+
+      // Comprobar si hay un pase guardado en este teléfono/navegador
+      try {
+        const guardadoRaw = localStorage.getItem('ultimo_pase_guardado');
+        if (guardadoRaw) {
+          const g = JSON.parse(guardadoRaw);
+          if (g && g.res && g.res.codigo) {
+            const banner = document.getElementById('banner-pase-guardado');
+            const codigoEl = document.getElementById('pase-guardado-codigo');
+            if (banner && codigoEl) {
+              codigoEl.textContent = g.res.codigo;
+              banner.classList.remove('hidden');
+            }
+          }
+        }
+      } catch (e) {}
     }
 
     function restaurarBotonSubmit() {
@@ -808,7 +909,93 @@
       const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=8&data=${encodeURIComponent(res.codigo)}`;
       document.getElementById('exito-qr-img').src = qrUrl;
 
+      // Guardar en la memoria local del teléfono por si cierra el navegador
+      try {
+        localStorage.setItem('ultimo_pase_guardado', JSON.stringify({
+          res,
+          titular,
+          dni,
+          eventoId: eventoActual ? eventoActual.id : null,
+          fecha: Date.now()
+        }));
+      } catch (e) {}
+
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function verPaseGuardado() {
+      try {
+        const guardadoRaw = localStorage.getItem('ultimo_pase_guardado');
+        if (guardadoRaw) {
+          const g = JSON.parse(guardadoRaw);
+          codigoActual = g.res.codigo;
+          mostrarExito(g.res, g.titular, g.dni);
+        }
+      } catch (e) {}
+    }
+
+    function abrirModalRecuperar() {
+      document.getElementById('modal-recuperar').classList.remove('hidden');
+      const input = document.getElementById('input-recuperar-dni');
+      if (input) input.focus();
+    }
+
+    function cerrarModalRecuperar() {
+      document.getElementById('modal-recuperar').classList.add('hidden');
+    }
+
+    async function ejecutarRecuperacionDni(e) {
+      e.preventDefault();
+      const input = document.getElementById('input-recuperar-dni');
+      const dni = (input.value || '').trim();
+      const btn = document.getElementById('btn-recuperar-submit');
+
+      if (!dni || dni.length < 7) {
+        alert('Ingresa un número de DNI válido.');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Buscando tu pase...';
+
+      try {
+        let query = db
+          .from('pre_registros_entradas')
+          .select('*')
+          .eq('dni_titular', dni)
+          .order('id', { ascending: false });
+
+        if (eventoActual && eventoActual.id) {
+          query = query.eq('evento_id', eventoActual.id);
+        }
+
+        const { data, error } = await query.limit(1).maybeSingle();
+
+        if (error) throw error;
+
+        if (!data) {
+          alert(`No encontramos ningún pase registrado con el DNI ${dni} para este evento. Puedes llenar el formulario para generar uno nuevo.`);
+          btn.disabled = false;
+          btn.textContent = 'Buscar mi pase';
+          return;
+        }
+
+        cerrarModalRecuperar();
+        codigoActual = data.codigo;
+        mostrarExito({
+          codigo: data.codigo,
+          cantidad: data.cantidad,
+          monto_total: data.monto_total
+        }, data.nombre_titular, data.dni_titular);
+
+        alert(`¡Pase encontrado! Tu código es ${data.codigo}.`);
+      } catch (err) {
+        console.error('Error al recuperar:', err);
+        alert('Hubo un error al buscar tu pase: ' + (err.message || 'Inténtalo nuevamente.'));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Buscar mi pase';
+      }
     }
 
     function copiarCodigo() {

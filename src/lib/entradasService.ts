@@ -568,7 +568,7 @@ export async function buscarPreRegistroPorCodigo(
     } as PreRegistroEntrada;
   }
 
-  // Si no se encontró por código, intentar buscar por DNI
+  // Si no se encontró por código, intentar buscar por DNI o por Nombre
   let dniQuery = supabase
     .from('pre_registros_entradas')
     .select('*')
@@ -587,6 +587,28 @@ export async function buscarPreRegistroPorCodigo(
       precio_unitario: Number(porDni.precio_unitario),
       monto_total: Number(porDni.monto_total),
     } as PreRegistroEntrada;
+  }
+
+  // Búsqueda por Nombre del Titular (si escribió su apellido o nombre completo)
+  if (limpio.length >= 3) {
+    let nombreQuery = supabase
+      .from('pre_registros_entradas')
+      .select('*')
+      .ilike('nombre_titular', `%${limpio}%`)
+      .order('id', { ascending: false });
+
+    if (eventoId) {
+      nombreQuery = nombreQuery.eq('evento_id', eventoId);
+    }
+
+    const { data: porNombre } = await nombreQuery.limit(1).maybeSingle();
+    if (porNombre) {
+      return {
+        ...porNombre,
+        precio_unitario: Number(porNombre.precio_unitario),
+        monto_total: Number(porNombre.monto_total),
+      } as PreRegistroEntrada;
+    }
   }
 
   return null;
