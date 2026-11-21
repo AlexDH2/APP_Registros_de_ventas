@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  useColorScheme
+  useColorScheme,
+  useWindowDimensions
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
@@ -50,6 +51,8 @@ type VentaItem = {
 export default function VentasPorSedesScreen() {
   const colorScheme = useColorScheme();
   const theme = colorScheme === 'dark' ? colors.dark : colors.light;
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
@@ -175,7 +178,7 @@ export default function VentasPorSedesScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: theme.background }]}>
       {/* Selector de Período */}
-      <View style={styles.periodRow}>
+      <View style={[styles.periodRow, isDesktop && { maxWidth: 1200, width: '100%', alignSelf: 'center', paddingHorizontal: 32 }]}>
         {(['HOY', '7DIAS', 'MES', 'TODO'] as const).map((period) => (
           <TouchableOpacity
             key={period}
@@ -198,7 +201,7 @@ export default function VentasPorSedesScreen() {
       </View>
 
       {/* Selector Horizontal de Sedes */}
-      <View style={styles.sedeFilterWrapper}>
+      <View style={[styles.sedeFilterWrapper, isDesktop && { maxWidth: 1200, width: '100%', alignSelf: 'center', paddingHorizontal: 24 }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sedeFilterScroll}>
           <TouchableOpacity
             style={[
@@ -230,7 +233,7 @@ export default function VentasPorSedesScreen() {
         </ScrollView>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={[styles.scroll, isDesktop && { maxWidth: 1200, width: '100%', alignSelf: 'center', paddingHorizontal: 32 }]} showsVerticalScrollIndicator={false}>
         {/* Resumen KPIs Card */}
         <View style={styles.kpiCard}>
           <View style={styles.kpiTopRow}>
@@ -297,23 +300,25 @@ export default function VentasPorSedesScreen() {
             <Text style={styles.emptySubtitle}>No hay registros para la sede y rango seleccionado.</Text>
           </View>
         ) : (
-          ventas.map((v) => {
-            const fechaD = new Date(v.fecha);
-            const isYape = v.metodo_pago === 'Yape';
-            const isPlin = v.metodo_pago === 'Plin';
-            const isEfectivo = v.metodo_pago === 'Efectivo';
-            const isAnulada = v.estado === 'ANULADA';
-            const isSolicitada = v.estado === 'SOLICITADA_ANULACION';
+          <View style={isDesktop ? { flexDirection: 'row', flexWrap: 'wrap', gap: 14 } : undefined}>
+            {ventas.map((v) => {
+              const fechaD = new Date(v.fecha);
+              const isYape = v.metodo_pago === 'Yape';
+              const isPlin = v.metodo_pago === 'Plin';
+              const isEfectivo = v.metodo_pago === 'Efectivo';
+              const isAnulada = v.estado === 'ANULADA';
+              const isSolicitada = v.estado === 'SOLICITADA_ANULACION';
 
-            return (
-              <View 
-                key={v.id} 
-                style={[
-                  styles.ventaCard, 
-                  isAnulada && styles.ventaCardAnulada,
-                  isSolicitada && styles.ventaCardSolicitada
-                ]}
-              >
+              return (
+                <View 
+                  key={v.id} 
+                  style={[
+                    styles.ventaCard, 
+                    isAnulada && styles.ventaCardAnulada,
+                    isSolicitada && styles.ventaCardSolicitada,
+                    isDesktop && { width: '48.9%', marginBottom: 0 }
+                  ]}
+                >
                 <View style={styles.ventaCardHeader}>
                   <View style={{ flex: 1, paddingRight: 8 }}>
                     <Text style={styles.ventaSede}>
@@ -399,7 +404,8 @@ export default function VentasPorSedesScreen() {
                 </View>
               </View>
             );
-          })
+          })}
+        </View>
         )}
       </ScrollView>
     </SafeAreaView>

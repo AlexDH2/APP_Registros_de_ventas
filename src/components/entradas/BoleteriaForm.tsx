@@ -7,6 +7,11 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  useWindowDimensions,
+  Modal,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { ImagePickerAsset } from 'expo-image-picker';
 import {
@@ -25,6 +30,8 @@ import {
   Sparkles,
   RotateCcw,
   ScanLine,
+  X,
+  Check,
 } from 'lucide-react-native';
 import {
   Evento,
@@ -34,10 +41,11 @@ import {
   PreRegistroEntrada,
 } from '../../types/entradas';
 import { fonts } from '../../theme';
+import { useAppTheme } from '../../context/ThemeContext';
 import AnimatedButton from '../AnimatedButton';
 import ComprobantePicker from './ComprobantePicker';
 import QrScannerModal from './QrScannerModal';
-import { buscarPreRegistroPorCodigo } from '../../lib/entradasService';
+import { buscarPreRegistroPorCodigo, buscarPreRegistrosPorDniONombre } from '../../lib/entradasService';
 
 interface BoleteriaFormProps {
   evento: Evento;
@@ -46,6 +54,7 @@ interface BoleteriaFormProps {
   theme: any;
   procesando: boolean;
   onEmitir: (datos: DatosEmisionEntrada) => Promise<void>;
+  isDesktop?: boolean;
 }
 
 export default function BoleteriaForm({
@@ -55,7 +64,11 @@ export default function BoleteriaForm({
   theme,
   procesando,
   onEmitir,
+  isDesktop: propIsDesktop,
 }: BoleteriaFormProps) {
+  const { isDark } = useAppTheme();
+  const { width } = useWindowDimensions();
+  const isDesktop = propIsDesktop !== undefined ? propIsDesktop : width >= 900;
   const [cantidad, setCantidad] = useState<number>(1);
   const [asistentes, setAsistentes] = useState<AsistenteTicket[]>([{ nombre: '', dni: '' }]);
   const [metodoPago, setMetodoPago] = useState<MetodoPagoEntrada>('Efectivo');
@@ -67,6 +80,13 @@ export default function BoleteriaForm({
   const [buscandoCodigo, setBuscandoCodigo] = useState<boolean>(false);
   const [preRegistroCargado, setPreRegistroCargado] = useState<PreRegistroEntrada | null>(null);
   const [scannerVisible, setScannerVisible] = useState<boolean>(false);
+
+  // Modal Recuperar Pase con DNI / Nombre (Función solicitada)
+  const [modalRecuperarVisible, setModalRecuperarVisible] = useState<boolean>(false);
+  const [dniBusquedaModal, setDniBusquedaModal] = useState<string>('');
+  const [buscandoDniModal, setBuscandoDniModal] = useState<boolean>(false);
+  const [resultadosModal, setResultadosModal] = useState<PreRegistroEntrada[]>([]);
+  const [haBuscadoModal, setHaBuscadoModal] = useState<boolean>(false);
 
   // El precio unitario proviene DIRECTAMENTE de la base de datos (evento.precio_entrada)
   const precioUnitario = evento.precio_entrada;
@@ -146,6 +166,58 @@ export default function BoleteriaForm({
     if (!limpio) return;
     setCodigoBusqueda(limpio);
     handleBuscarPreRegistro(limpio);
+  };
+
+  const handleBuscarPorDniModal = async () => {
+    const term = dniBusquedaModal.trim();
+    if (!term) {
+      Alert.alert('Ingresa un dato', 'Escribe el número de DNI o apellido del comprador.');
+      return;
+    }
+    setBuscandoDniModal(true);
+    setHaBuscadoModal(true);
+    try {
+      const res = await buscarPreRegistrosPorDniONombre(term, evento.id);
+      setResultadosModal(res);
+    } catch (e: any) {
+      Alert.alert('Error', e?.message || 'Error al buscar pre-registros.');
+    } finally {
+      setBuscandoDniModal(false);
+    }
+  };
+
+  const handleSeleccionarPreRegistro = (reg: PreRegistroEntrada) => {
+    if (reg.estado === 'COBRADO') {
+      Alert.alert(
+        'Pase Ya Cobrado',
+        `El pase ${reg.codigo} ya fue canjeado${reg.atendido_por ? ' por ' + reg.atendido_por : ''}${reg.fecha_cobro ? ' el ' + new Date(reg.fecha_cobro).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}. No puede cobrarse nuevamente.`
+      );
+      return;
+    }
+
+    setPreRegistroCargado(reg);
+    setCantidad(reg.cantidad);
+
+    if (reg.asistentes && Array.isArray(reg.asistentes) && reg.asistentes.length > 0) {
+      setAsistentes(
+        reg.asistentes.map((a: any) => ({
+          nombre: a.nombre || '',
+          dni: a.dni || '',
+        }))
+      );
+    } else {
+      const list = [{ nombre: reg.nombre_titular, dni: reg.dni_titular }];
+      for (let i = 1; i < reg.cantidad; i++) {
+        list.push({ nombre: `${reg.nombre_titular} (Acomp ${i + 1})`, dni: reg.dni_titular });
+      }
+      setAsistentes(list);
+    }
+
+    setModalRecuperarVisible(false);
+    Alert.alert(
+      '¡Pase Recuperado!',
+      `Se cargó el pase ${reg.codigo} de ${reg.nombre_titular} (${reg.cantidad} ${reg.cantidad === 1 ? 'entrada' : 'entradas'} por S/ ${reg.monto_total.toFixed(2)}). Listo para cobrar.`
+    );
   };
 
   const handleIncrement = () => {
@@ -258,116 +330,142 @@ export default function BoleteriaForm({
     setImage(null);
   };
 
-  return (
-    <View style={[styles.container, { backgroundColor: theme.card, borderColor: theme.border }]}>
-      {/* 0. SECCIÓN DE CANJE DE PRE-REGISTRO POR CÓDIGO ID O QR */}
-      <View
-        style={[
-          styles.preregistroCard,
-          {
-            backgroundColor: preRegistroCargado ? '#f0fdf4' : theme.background,
-            borderColor: preRegistroCargado ? '#86efac' : theme.border,
-          },
-        ]}
-      >
-        <View style={styles.preregistroHeader}>
-          <View style={styles.preregistroTitleRow}>
-            <Sparkles size={16} color={preRegistroCargado ? '#16a34a' : theme.primary} />
-            <Text
-              style={[
-                styles.preregistroTitle,
-                { color: preRegistroCargado ? '#16a34a' : theme.text },
-              ]}
-            >
-              {preRegistroCargado ? 'Pre-Registro Cargado' : 'Canjear Pre-Registro (Web / QR)'}
-            </Text>
-          </View>
-          {preRegistroCargado && (
-            <TouchableOpacity
-              style={styles.preregistroClearBtn}
-              onPress={handleLimpiarPreRegistro}
-              disabled={procesando}
-            >
-              <RotateCcw size={13} color="#dc2626" />
-              <Text style={styles.preregistroClearText}>Desvincular</Text>
-            </TouchableOpacity>
-          )}
+  // Secciones modulares para layout responsive
+  const sectionPreRegistro = (
+    <View
+      style={[
+        styles.preregistroCard,
+        {
+          backgroundColor: preRegistroCargado ? '#f0fdf4' : theme.background,
+          borderColor: preRegistroCargado ? '#86efac' : theme.border,
+        },
+      ]}
+    >
+      <View style={styles.preregistroHeader}>
+        <View style={styles.preregistroTitleRow}>
+          <Sparkles size={16} color={preRegistroCargado ? '#16a34a' : theme.primary} />
+          <Text
+            style={[
+              styles.preregistroTitle,
+              { color: preRegistroCargado ? '#16a34a' : theme.text },
+            ]}
+          >
+            {preRegistroCargado ? 'Pre-Registro Cargado' : 'Canjear Pre-Registro (Web / QR)'}
+          </Text>
         </View>
-
-        {preRegistroCargado ? (
-          <View style={styles.preregistroSuccessInfo}>
-            <View style={styles.preregistroBadgeCode}>
-              <Text style={styles.preregistroBadgeCodeText}>{preRegistroCargado.codigo}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.preregistroTitularText} numberOfLines={1}>
-                {preRegistroCargado.nombre_titular}
-              </Text>
-              <Text style={styles.preregistroSubText}>
-                DNI: {preRegistroCargado.dni_titular} • {preRegistroCargado.cantidad}{' '}
-                {preRegistroCargado.cantidad === 1 ? 'entrada' : 'entradas'} • Total: S/{' '}
-                {preRegistroCargado.monto_total.toFixed(2)}
-              </Text>
-            </View>
-          </View>
-        ) : (
-          <View style={{ gap: 8 }}>
-            <TouchableOpacity
-              style={[styles.preregistroScanBtn, { backgroundColor: '#0f172a' }]}
-              onPress={() => setScannerVisible(true)}
-              disabled={buscandoCodigo || procesando}
-              activeOpacity={0.8}
-            >
-              <ScanLine size={18} color="#38bdf8" />
-              <Text style={styles.preregistroScanBtnText}>Escanear QR del Comprador</Text>
-            </TouchableOpacity>
-
-            <View style={styles.preregistroInputRow}>
-              <View
-                style={[
-                  styles.preregistroInputBox,
-                  { backgroundColor: theme.card, borderColor: theme.border },
-                ]}
-              >
-                <QrCode size={16} color={theme.textMuted} />
-                <TextInput
-                  style={[styles.preregistroInput, { color: theme.text }]}
-                  placeholder="O escribe ID (ej: 1001) o DNI"
-                  placeholderTextColor={theme.textMuted}
-                  value={codigoBusqueda}
-                  onChangeText={setCodigoBusqueda}
-                  autoCapitalize="characters"
-                  onSubmitEditing={() => handleBuscarPreRegistro()}
-                  returnKeyType="search"
-                />
-              </View>
-              <TouchableOpacity
-                style={[styles.preregistroSearchBtn, { backgroundColor: theme.primary }]}
-                onPress={() => handleBuscarPreRegistro()}
-                disabled={buscandoCodigo || procesando}
-              >
-                {buscandoCodigo ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <>
-                    <Search size={15} color="#ffffff" />
-                    <Text style={styles.preregistroSearchBtnText}>Cargar</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+        {preRegistroCargado && (
+          <TouchableOpacity
+            style={styles.preregistroClearBtn}
+            onPress={handleLimpiarPreRegistro}
+            disabled={procesando}
+          >
+            <RotateCcw size={13} color="#dc2626" />
+            <Text style={styles.preregistroClearText}>Desvincular</Text>
+          </TouchableOpacity>
         )}
       </View>
 
-      {/* Modal Lector de Código QR */}
-      <QrScannerModal
-        visible={scannerVisible}
-        onClose={() => setScannerVisible(false)}
-        onScan={handleQrEscaneado}
-      />
+      {preRegistroCargado ? (
+        <View style={styles.preregistroSuccessInfo}>
+          <View style={styles.preregistroBadgeCode}>
+            <Text style={styles.preregistroBadgeCodeText}>{preRegistroCargado.codigo}</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.preregistroTitularText} numberOfLines={1}>
+              {preRegistroCargado.nombre_titular}
+            </Text>
+            <Text style={styles.preregistroSubText}>
+              DNI: {preRegistroCargado.dni_titular} • {preRegistroCargado.cantidad}{' '}
+              {preRegistroCargado.cantidad === 1 ? 'entrada' : 'entradas'} • Total: S/{' '}
+              {preRegistroCargado.monto_total.toFixed(2)}
+            </Text>
+          </View>
+        </View>
+      ) : (
+        <View style={{ gap: 8 }}>
+          <TouchableOpacity
+            style={[styles.preregistroScanBtn, { backgroundColor: '#0f172a' }]}
+            onPress={() => setScannerVisible(true)}
+            disabled={buscandoCodigo || procesando}
+            activeOpacity={0.8}
+          >
+            <ScanLine size={18} color="#38bdf8" />
+            <Text style={styles.preregistroScanBtnText}>Escanear QR del Comprador</Text>
+          </TouchableOpacity>
 
-      {/* 1. Selector de Cantidad */}
+          <View style={styles.preregistroInputRow}>
+            <View
+              style={[
+                styles.preregistroInputBox,
+                { backgroundColor: theme.card, borderColor: theme.border },
+              ]}
+            >
+              <QrCode size={16} color={theme.textMuted} />
+              <TextInput
+                style={[styles.preregistroInput, { color: theme.text }]}
+                placeholder="O escribe ID (ej: 1001) o DNI"
+                placeholderTextColor={theme.textMuted}
+                value={codigoBusqueda}
+                onChangeText={setCodigoBusqueda}
+                autoCapitalize="characters"
+                onSubmitEditing={() => handleBuscarPreRegistro()}
+                returnKeyType="search"
+              />
+            </View>
+            <TouchableOpacity
+              style={[styles.preregistroSearchBtn, { backgroundColor: theme.primary }]}
+              onPress={() => handleBuscarPreRegistro()}
+              disabled={buscandoCodigo || procesando}
+            >
+              {buscandoCodigo ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <Search size={15} color="#ffffff" />
+                  <Text style={styles.preregistroSearchBtnText}>Cargar</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Banner Recuperar Pase con DNI (Función solicitada por el usuario) */}
+          <TouchableOpacity
+            style={[
+              styles.bannerRecuperarDni,
+              {
+                backgroundColor: isDark ? 'rgba(37, 99, 235, 0.12)' : '#eff6ff',
+                borderColor: isDark ? 'rgba(59, 130, 246, 0.35)' : '#bfdbfe',
+              },
+            ]}
+            onPress={() => {
+              setModalRecuperarVisible(true);
+              setDniBusquedaModal('');
+              setResultadosModal([]);
+              setHaBuscadoModal(false);
+            }}
+            activeOpacity={0.8}
+          >
+            <View style={styles.bannerRecuperarContent}>
+              <Text style={{ fontSize: 14 }}>🔍</Text>
+              <Text
+                style={[
+                  styles.bannerRecuperarText,
+                  { color: isDark ? '#93c5fd' : '#1e40af' },
+                ]}
+                numberOfLines={1}
+              >
+                ¿Cerraste tu pase sin guardarlo?{' '}
+                <Text style={styles.bannerRecuperarUnderline}>Recupéralo con tu DNI</Text>
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+
+  const sectionCantidad = (
+    <View style={{ marginBottom: 12 }}>
       <View style={styles.sectionHeader}>
         <Ticket size={16} color={theme.primary} />
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Cantidad de Entradas</Text>
@@ -397,16 +495,25 @@ export default function BoleteriaForm({
           <Plus size={20} color={theme.text} />
         </TouchableOpacity>
       </View>
+    </View>
+  );
 
-      {/* 2. Total a Pagar en Grande */}
-      <View style={[styles.totalBanner, { backgroundColor: theme.primaryLight }]}>
+  const sectionTotalBanner = (
+    <View style={[styles.totalBanner, { backgroundColor: theme.primaryLight }]}>
+      <View>
         <Text style={[styles.totalBannerLabel, { color: theme.primary }]}>Total a Cobrar:</Text>
-        <Text style={[styles.totalBannerAmount, { color: theme.primary }]}>
-          S/ {total.toFixed(2)}
+        <Text style={[styles.totalBannerSub, { color: theme.primary, opacity: 0.8 }]}>
+          {cantidad} {cantidad === 1 ? 'entrada' : 'entradas'} • S/ {precioUnitario.toFixed(2)} c/u
         </Text>
       </View>
+      <Text style={[styles.totalBannerAmount, { color: theme.primary }]}>
+        S/ {total.toFixed(2)}
+      </Text>
+    </View>
+  );
 
-      {/* 3. Datos de los Asistentes (Formularios Dinámicos según la Cantidad) */}
+  const sectionAsistentes = (
+    <View style={{ marginBottom: 12 }}>
       <View style={styles.sectionHeaderBetween}>
         <View style={styles.sectionHeaderLeft}>
           <User size={16} color={theme.primary} />
@@ -514,8 +621,11 @@ export default function BoleteriaForm({
           );
         })}
       </View>
+    </View>
+  );
 
-      {/* 4. Método de Pago */}
+  const sectionMetodoPago = (
+    <View style={{ marginBottom: 12 }}>
       <View style={styles.sectionHeader}>
         <DollarSign size={16} color={theme.primary} />
         <Text style={[styles.sectionTitle, { color: theme.text }]}>Método de Pago</Text>
@@ -563,92 +673,294 @@ export default function BoleteriaForm({
           }
         )}
       </View>
+    </View>
+  );
 
-      {/* 5. Calculadora de Vuelto para Efectivo */}
-      {metodoPago === 'Efectivo' && (
-        <View style={[styles.cashBox, { backgroundColor: theme.background, borderColor: theme.border }]}>
-          <Text style={[styles.cashBoxTitle, { color: theme.textMuted }]}>
-            Calculadora de Vuelto (Opcional)
+  const sectionVuelto = metodoPago === 'Efectivo' ? (
+    <View style={[styles.cashBox, { backgroundColor: theme.background, borderColor: theme.border }]}>
+      <Text style={[styles.cashBoxTitle, { color: theme.textMuted }]}>
+        Calculadora de Vuelto (Opcional)
+      </Text>
+
+      <View style={styles.quickBillsRow}>
+        <TouchableOpacity
+          style={[styles.quickBillBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
+          onPress={() => setBilletesRapidos(total)}
+        >
+          <Text style={[styles.quickBillText, { color: theme.text }]}>Exacto</Text>
+        </TouchableOpacity>
+        {[10, 20, 50, 100].map((b) => (
+          <TouchableOpacity
+            key={b}
+            style={[styles.quickBillBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
+            onPress={() => setBilletesRapidos(b)}
+          >
+            <Text style={[styles.quickBillText, { color: theme.text }]}>S/ {b}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <View style={styles.cashInputsRow}>
+        <View style={[styles.cashInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
+          <Text style={[styles.cashInputLabel, { color: theme.textMuted }]}>Paga con:</Text>
+          <TextInput
+            style={[styles.cashInput, { color: theme.text }]}
+            placeholder="0.00"
+            placeholderTextColor={theme.textMuted}
+            value={montoRecibido}
+            onChangeText={setMontoRecibido}
+            keyboardType="decimal-pad"
+            editable={!procesando}
+          />
+        </View>
+
+        <View style={[styles.vueltoWrapper, { backgroundColor: vuelto > 0 ? '#dcfce7' : theme.card }]}>
+          <Text style={[styles.vueltoLabel, { color: vuelto > 0 ? '#16a34a' : theme.textMuted }]}>
+            Vuelto:
           </Text>
+          <Text style={[styles.vueltoAmount, { color: vuelto > 0 ? '#16a34a' : theme.text }]}>
+            S/ {vuelto.toFixed(2)}
+          </Text>
+        </View>
+      </View>
+    </View>
+  ) : null;
 
-          <View style={styles.quickBillsRow}>
-            <TouchableOpacity
-              style={[styles.quickBillBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
-              onPress={() => setBilletesRapidos(total)}
-            >
-              <Text style={[styles.quickBillText, { color: theme.text }]}>Exacto</Text>
-            </TouchableOpacity>
-            {[10, 20, 50, 100].map((b) => (
-              <TouchableOpacity
-                key={b}
-                style={[styles.quickBillBtn, { backgroundColor: theme.card, borderColor: theme.border }]}
-                onPress={() => setBilletesRapidos(b)}
-              >
-                <Text style={[styles.quickBillText, { color: theme.text }]}>S/ {b}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+  const sectionComprobante = (
+    <ComprobantePicker
+      image={image}
+      onImageChange={setImage}
+      theme={theme}
+      required={metodoPago !== 'Efectivo'}
+    />
+  );
 
-          <View style={styles.cashInputsRow}>
-            <View style={[styles.cashInputWrapper, { backgroundColor: theme.card, borderColor: theme.border }]}>
-              <Text style={[styles.cashInputLabel, { color: theme.textMuted }]}>Paga con:</Text>
-              <TextInput
-                style={[styles.cashInput, { color: theme.text }]}
-                placeholder="0.00"
-                placeholderTextColor={theme.textMuted}
-                value={montoRecibido}
-                onChangeText={setMontoRecibido}
-                keyboardType="decimal-pad"
-                editable={!procesando}
-              />
-            </View>
-
-            <View style={[styles.vueltoWrapper, { backgroundColor: vuelto > 0 ? '#dcfce7' : theme.card }]}>
-              <Text style={[styles.vueltoLabel, { color: vuelto > 0 ? '#16a34a' : theme.textMuted }]}>
-                Vuelto:
-              </Text>
-              <Text style={[styles.vueltoAmount, { color: vuelto > 0 ? '#16a34a' : theme.text }]}>
-                S/ {vuelto.toFixed(2)}
-              </Text>
-            </View>
-          </View>
+  const sectionEmitirBtn = (
+    <AnimatedButton
+      style={[
+        styles.emitirBtn,
+        {
+          backgroundColor: theme.primary,
+          opacity: procesando ? 0.7 : 1,
+        },
+      ]}
+      onPress={handleSubmit}
+      disabled={procesando}
+    >
+      {procesando ? (
+        <View style={styles.loadingRow}>
+          <ActivityIndicator size="small" color="#ffffff" />
+          <Text style={styles.emitirBtnText}>EMITIENDO TICKET EN BASE DE DATOS...</Text>
+        </View>
+      ) : (
+        <View style={styles.btnContentRow}>
+          <Ticket size={20} color="#ffffff" />
+          <Text style={styles.emitirBtnText}>
+            EMITIR {cantidad} {cantidad === 1 ? 'ENTRADA' : 'ENTRADAS'} (S/ {total.toFixed(2)})
+          </Text>
         </View>
       )}
+    </AnimatedButton>
+  );
 
-      {/* 6. Comprobante de Pago (Cámara o Galería) */}
-      <ComprobantePicker
-        image={image}
-        onImageChange={setImage}
-        theme={theme}
-        required={metodoPago !== 'Efectivo'}
+  return (
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.card, borderColor: theme.border },
+        isDesktop && styles.containerDesktop,
+      ]}
+    >
+      {/* Modal Lector de Código QR */}
+      <QrScannerModal
+        visible={scannerVisible}
+        onClose={() => setScannerVisible(false)}
+        onScan={handleQrEscaneado}
       />
 
-      {/* 7. Botón Principal de Emisión */}
-      <AnimatedButton
-        style={[
-          styles.emitirBtn,
-          {
-            backgroundColor: theme.primary,
-            opacity: procesando ? 0.7 : 1,
-          },
-        ]}
-        onPress={handleSubmit}
-        disabled={procesando}
+      {/* Modal Recuperar Pase con DNI / Nombre */}
+      <Modal
+        visible={modalRecuperarVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setModalRecuperarVisible(false)}
       >
-        {procesando ? (
-          <View style={styles.loadingRow}>
-            <ActivityIndicator size="small" color="#ffffff" />
-            <Text style={styles.emitirBtnText}>EMITIENDO TICKET EN BASE DE DATOS...</Text>
-          </View>
-        ) : (
-          <View style={styles.btnContentRow}>
-            <Ticket size={20} color="#ffffff" />
-            <Text style={styles.emitirBtnText}>
-              EMITIR {cantidad} {cantidad === 1 ? 'ENTRADA' : 'ENTRADAS'} (S/ {total.toFixed(2)})
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
+          <View style={[styles.modalCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            {/* Header del Modal */}
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1 }}>
+                <View style={[styles.modalHeaderIconBox, { backgroundColor: isDark ? 'rgba(37, 99, 235, 0.2)' : '#eff6ff' }]}>
+                  <Search size={18} color="#2563eb" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.modalTitle, { color: theme.text }]} numberOfLines={1}>
+                    Recuperar Pase con DNI
+                  </Text>
+                  <Text style={[styles.modalSubtitle, { color: theme.textMuted }]} numberOfLines={1}>
+                    Búsqueda de entradas pre-registradas
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                onPress={() => setModalRecuperarVisible(false)}
+                style={[styles.modalCloseBtn, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#f1f5f9' }]}
+                activeOpacity={0.7}
+              >
+                <X size={18} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Subtítulo descriptivo */}
+            <Text style={[styles.modalDesc, { color: theme.textMuted }]}>
+              Si el comprador cerró la página o no guardó su código ID ni su QR, ingresa su DNI o Nombre para encontrar su pase al instante.
             </Text>
+
+            {/* Input de Búsqueda */}
+            <View style={styles.modalSearchRow}>
+              <View style={[styles.modalInputBox, { backgroundColor: theme.background, borderColor: theme.border }]}>
+                <IdCard size={18} color={theme.textMuted} />
+                <TextInput
+                  style={[styles.modalInput, { color: theme.text }]}
+                  placeholder="Escribe DNI o apellido..."
+                  placeholderTextColor={theme.textMuted}
+                  value={dniBusquedaModal}
+                  onChangeText={setDniBusquedaModal}
+                  onSubmitEditing={handleBuscarPorDniModal}
+                  returnKeyType="search"
+                />
+              </View>
+              <TouchableOpacity
+                style={[styles.modalSearchBtn, { opacity: buscandoDniModal ? 0.7 : 1 }]}
+                onPress={handleBuscarPorDniModal}
+                disabled={buscandoDniModal}
+                activeOpacity={0.8}
+              >
+                {buscandoDniModal ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text style={styles.modalSearchBtnText}>Buscar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Lista de Resultados */}
+            <ScrollView style={styles.modalResultsScroll} showsVerticalScrollIndicator={false}>
+              {buscandoDniModal ? (
+                <View style={{ paddingVertical: 24, alignItems: 'center' }}>
+                  <ActivityIndicator size="large" color="#2563eb" />
+                  <Text style={{ marginTop: 8, color: theme.textMuted, fontSize: 13, fontFamily: fonts.medium }}>
+                    Buscando en la base de datos...
+                  </Text>
+                </View>
+              ) : haBuscadoModal && resultadosModal.length === 0 ? (
+                <View style={[styles.modalEmptyBox, { backgroundColor: isDark ? 'rgba(255,255,255,0.03)' : '#f8fafc', borderColor: theme.border }]}>
+                  <Text style={{ fontSize: 28, textAlign: 'center' }}>🔎</Text>
+                  <Text style={[styles.modalEmptyTitle, { color: theme.text }]}>No se encontraron pases</Text>
+                  <Text style={[styles.modalEmptyText, { color: theme.textMuted }]}>
+                    No hay ningún pre-registro con "{dniBusquedaModal}" en este evento. Verifica que el padre haya completado el formulario en la web de entradas.
+                  </Text>
+                </View>
+              ) : (
+                resultadosModal.map((reg) => {
+                  const yaCobrado = reg.estado === 'COBRADO';
+                  return (
+                    <View
+                      key={reg.id}
+                      style={[
+                        styles.modalResultCard,
+                        {
+                          backgroundColor: isDark ? '#132238' : '#f8fafc',
+                          borderColor: yaCobrado ? (isDark ? '#7f1d1d' : '#fca5a5') : (isDark ? '#1e3a8a' : '#bfdbfe'),
+                        },
+                      ]}
+                    >
+                      <View style={styles.modalResultHeader}>
+                        <View style={styles.modalResultCodeBadge}>
+                          <Text style={styles.modalResultCodeText}>{reg.codigo}</Text>
+                        </View>
+                        <View
+                          style={[
+                            styles.modalResultStatusBadge,
+                            { backgroundColor: yaCobrado ? (isDark ? 'rgba(239, 68, 68, 0.2)' : '#fef2f2') : (isDark ? 'rgba(16, 185, 129, 0.2)' : '#ecfdf5') },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.modalResultStatusText,
+                              { color: yaCobrado ? '#ef4444' : '#10b981' },
+                            ]}
+                          >
+                            {yaCobrado ? 'YA COBRADO' : 'LISTO PARA COBRAR'}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text style={[styles.modalResultName, { color: theme.text }]} numberOfLines={1}>
+                        {reg.nombre_titular}
+                      </Text>
+
+                      <Text style={[styles.modalResultDetails, { color: theme.textMuted }]}>
+                        DNI: <Text style={{ color: theme.text, fontWeight: '700' }}>{reg.dni_titular}</Text> • {reg.cantidad}{' '}
+                        {reg.cantidad === 1 ? 'entrada' : 'entradas'} • Total: <Text style={{ color: '#10b981', fontWeight: '800' }}>S/ {reg.monto_total.toFixed(2)}</Text>
+                      </Text>
+
+                      {yaCobrado ? (
+                        <Text style={[styles.modalResultCobradoPor, { color: isDark ? '#f87171' : '#dc2626' }]}>
+                          Cobrado por {reg.atendido_por || 'Colaborador'}{reg.fecha_cobro ? ' a las ' + new Date(reg.fecha_cobro).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
+                        </Text>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.modalResultSelectBtn}
+                          onPress={() => handleSeleccionarPreRegistro(reg)}
+                          activeOpacity={0.8}
+                        >
+                          <Check size={16} color="#ffffff" />
+                          <Text style={styles.modalResultSelectBtnText}>Cargar a Boletería</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  );
+                })
+              )}
+            </ScrollView>
           </View>
-        )}
-      </AnimatedButton>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {isDesktop ? (
+        <View style={styles.desktopFormRow}>
+          {/* Columna Izquierda: Operación y Configuración */}
+          <View style={styles.desktopColLeft}>
+            {sectionPreRegistro}
+            {sectionCantidad}
+            {sectionMetodoPago}
+            {sectionVuelto}
+            {sectionComprobante}
+          </View>
+
+          {/* Columna Derecha: Resumen, Asistentes y Emisión */}
+          <View style={styles.desktopColRight}>
+            {sectionTotalBanner}
+            {sectionAsistentes}
+            {sectionEmitirBtn}
+          </View>
+        </View>
+      ) : (
+        <>
+          {sectionPreRegistro}
+          {sectionCantidad}
+          {sectionTotalBanner}
+          {sectionAsistentes}
+          {sectionMetodoPago}
+          {sectionVuelto}
+          {sectionComprobante}
+          {sectionEmitirBtn}
+        </>
+      )}
     </View>
   );
 }
@@ -665,6 +977,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 6,
     elevation: 2,
+  },
+  containerDesktop: {
+    marginHorizontal: 0,
+    padding: 24,
+    borderRadius: 20,
+    maxWidth: 1200,
+    width: '100%',
+    alignSelf: 'center',
+    marginBottom: 32,
+  },
+  desktopFormRow: {
+    flexDirection: 'row',
+    gap: 24,
+    alignItems: 'flex-start',
+  },
+  desktopColLeft: {
+    flex: 1,
+    minWidth: 360,
+  },
+  desktopColRight: {
+    flex: 1.15,
+    minWidth: 400,
+  },
+  totalBannerSub: {
+    fontSize: 11,
+    fontFamily: fonts.medium,
+    marginTop: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -1023,5 +1362,197 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fonts.bold,
     letterSpacing: 0.3,
+  },
+
+  // Banner Recuperar con DNI
+  bannerRecuperarDni: {
+    marginTop: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerRecuperarContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  bannerRecuperarText: {
+    fontSize: 12,
+    fontFamily: fonts.semiBold,
+  },
+  bannerRecuperarUnderline: {
+    fontFamily: fonts.bold,
+    textDecorationLine: 'underline',
+  },
+
+  // Modal Recuperar con DNI
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 480,
+    maxHeight: '90%',
+    borderRadius: 22,
+    padding: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  modalHeaderIconBox: {
+    padding: 8,
+    borderRadius: 10,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontFamily: fonts.bold,
+  },
+  modalSubtitle: {
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    marginTop: 1,
+  },
+  modalCloseBtn: {
+    padding: 7,
+    borderRadius: 10,
+  },
+  modalDesc: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    lineHeight: 17,
+    marginBottom: 14,
+  },
+  modalSearchRow: {
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  modalInputBox: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  modalInput: {
+    flex: 1,
+    fontSize: 14,
+    fontFamily: fonts.medium,
+  },
+  modalSearchBtn: {
+    backgroundColor: '#2563eb',
+    paddingHorizontal: 16,
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalSearchBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontFamily: fonts.bold,
+  },
+  modalResultsScroll: {
+    maxHeight: 340,
+  },
+  modalEmptyBox: {
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    gap: 6,
+    marginVertical: 10,
+  },
+  modalEmptyTitle: {
+    fontSize: 14,
+    fontFamily: fonts.bold,
+    marginTop: 4,
+  },
+  modalEmptyText: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  modalResultCard: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    padding: 12,
+    marginBottom: 10,
+    gap: 6,
+  },
+  modalResultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  modalResultCodeBadge: {
+    backgroundColor: '#0f172a',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  modalResultCodeText: {
+    color: '#38bdf8',
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    letterSpacing: 0.5,
+  },
+  modalResultStatusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  modalResultStatusText: {
+    fontSize: 10,
+    fontFamily: fonts.bold,
+  },
+  modalResultName: {
+    fontSize: 14,
+    fontFamily: fonts.bold,
+  },
+  modalResultDetails: {
+    fontSize: 12,
+    fontFamily: fonts.regular,
+  },
+  modalResultCobradoPor: {
+    fontSize: 11,
+    fontFamily: fonts.medium,
+    marginTop: 2,
+  },
+  modalResultSelectBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#16a34a',
+    paddingVertical: 9,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  modalResultSelectBtnText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontFamily: fonts.bold,
   },
 });

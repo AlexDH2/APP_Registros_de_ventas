@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
 import { Ticket, MapPin, Users, RefreshCw, AlertCircle, Edit3 } from 'lucide-react-native';
 import { Evento, MetricasVentas } from '../../types/entradas';
 import { fonts } from '../../theme';
@@ -11,6 +11,7 @@ interface EventoHeaderCardProps {
   onRefresh: () => void;
   loading: boolean;
   onPressEdit?: () => void;
+  isDesktop?: boolean;
 }
 
 export default function EventoHeaderCard({
@@ -20,10 +21,20 @@ export default function EventoHeaderCard({
   onRefresh,
   loading,
   onPressEdit,
+  isDesktop: propIsDesktop,
 }: EventoHeaderCardProps) {
+  const { width } = useWindowDimensions();
+  const isDesktop = propIsDesktop !== undefined ? propIsDesktop : width >= 800;
+
   if (!evento) {
     return (
-      <View style={[styles.card, { backgroundColor: theme.card, borderColor: '#f59e0b' }]}>
+      <View
+        style={[
+          styles.card,
+          { backgroundColor: theme.card, borderColor: '#f59e0b' },
+          isDesktop && { marginHorizontal: 0 },
+        ]}
+      >
         <View style={styles.emptyContainer}>
           <AlertCircle size={32} color="#f59e0b" />
           <View style={styles.emptyTextContainer}>
@@ -56,7 +67,13 @@ export default function EventoHeaderCard({
       : null;
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <View
+      style={[
+        styles.card,
+        { backgroundColor: theme.card, borderColor: theme.border },
+        isDesktop && { marginHorizontal: 0, padding: 18 },
+      ]}
+    >
       <View style={styles.topRow}>
         <View style={styles.titleInfo}>
           <View style={styles.badgeRow}>

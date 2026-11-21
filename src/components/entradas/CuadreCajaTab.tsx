@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Share, useWindowDimensions } from 'react-native';
 import { Wallet, Banknote, Smartphone, CreditCard, Share2, Ticket } from 'lucide-react-native';
 import { Evento, VentaEntrada } from '../../types/entradas';
 import { fonts } from '../../theme';
@@ -10,6 +10,7 @@ interface CuadreCajaTabProps {
   colaboradorNombre: string;
   misVentas: VentaEntrada[];
   theme: any;
+  isDesktop?: boolean;
 }
 
 export default function CuadreCajaTab({
@@ -17,7 +18,10 @@ export default function CuadreCajaTab({
   colaboradorNombre,
   misVentas,
   theme,
+  isDesktop: propIsDesktop,
 }: CuadreCajaTabProps) {
+  const { width } = useWindowDimensions();
+  const isDesktop = propIsDesktop !== undefined ? propIsDesktop : width >= 800;
   const activas = misVentas.filter((v) => v.estado === 'COMPLETADA');
 
   const totalEntradas = activas.reduce((acc, v) => acc + (v.cantidad || 0), 0);
@@ -72,78 +76,99 @@ export default function CuadreCajaTab({
     }
   };
 
-  return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {/* Tarjeta de Resumen Efectivo en Mano */}
-      <View style={[styles.mainCard, { backgroundColor: '#10b981' }]}>
-        <View style={styles.mainCardHeader}>
-          <Wallet size={20} color="#ffffff" />
-          <Text style={styles.mainCardLabel}>EFECTIVO FÍSICO A ENTREGAR</Text>
+  const cardEfectivo = (
+    <View style={[styles.mainCard, { backgroundColor: '#10b981' }, isDesktop && { marginBottom: 14 }]}>
+      <View style={styles.mainCardHeader}>
+        <Wallet size={20} color="#ffffff" />
+        <Text style={styles.mainCardLabel}>EFECTIVO FÍSICO A ENTREGAR</Text>
+      </View>
+      <Text style={styles.mainCardAmount}>S/ {totalEfectivo.toFixed(2)}</Text>
+      <Text style={styles.mainCardSub}>
+        Monto total en billetes y monedas que debes rendir en caja
+      </Text>
+    </View>
+  );
+
+  const cardBreakdown = (
+    <View style={[styles.breakdownCard, { backgroundColor: theme.card, borderColor: theme.border }, isDesktop && { marginHorizontal: 0, marginBottom: 0 }]}>
+      <Text style={[styles.sectionTitle, { color: theme.text }]}>Desglose del Turno</Text>
+
+      <View style={[styles.rowItem, { borderBottomColor: theme.border }]}>
+        <View style={styles.rowLeft}>
+          <Ticket size={18} color="#2563eb" />
+          <Text style={[styles.rowLabel, { color: theme.text }]}>Entradas Vendidas</Text>
         </View>
-        <Text style={styles.mainCardAmount}>S/ {totalEfectivo.toFixed(2)}</Text>
-        <Text style={styles.mainCardSub}>
-          Monto total en billetes y monedas que debes rendir en caja
+        <Text style={[styles.rowValue, { color: theme.text }]}>{totalEntradas} unid.</Text>
+      </View>
+
+      <View style={[styles.rowItem, { borderBottomColor: theme.border }]}>
+        <View style={styles.rowLeft}>
+          <Banknote size={18} color="#16a34a" />
+          <Text style={[styles.rowLabel, { color: theme.text }]}>Efectivo Cobrado</Text>
+        </View>
+        <Text style={[styles.rowValue, { color: '#16a34a' }]}>S/ {totalEfectivo.toFixed(2)}</Text>
+      </View>
+
+      <View style={[styles.rowItem, { borderBottomColor: theme.border }]}>
+        <View style={styles.rowLeft}>
+          <Smartphone size={18} color="#9333ea" />
+          <Text style={[styles.rowLabel, { color: theme.text }]}>Yape</Text>
+        </View>
+        <Text style={[styles.rowValue, { color: theme.text }]}>S/ {totalYape.toFixed(2)}</Text>
+      </View>
+
+      <View style={[styles.rowItem, { borderBottomColor: theme.border }]}>
+        <View style={styles.rowLeft}>
+          <Smartphone size={18} color="#0284c7" />
+          <Text style={[styles.rowLabel, { color: theme.text }]}>Plin</Text>
+        </View>
+        <Text style={[styles.rowValue, { color: theme.text }]}>S/ {totalPlin.toFixed(2)}</Text>
+      </View>
+
+      <View style={[styles.rowItem, { borderBottomColor: theme.border }]}>
+        <View style={styles.rowLeft}>
+          <CreditCard size={18} color="#d97706" />
+          <Text style={[styles.rowLabel, { color: theme.text }]}>Tarjeta / Banco</Text>
+        </View>
+        <Text style={[styles.rowValue, { color: theme.text }]}>S/ {totalOtros.toFixed(2)}</Text>
+      </View>
+
+      {/* Total General */}
+      <View style={styles.totalRow}>
+        <Text style={[styles.totalLabel, { color: theme.text }]}>Total Recaudado:</Text>
+        <Text style={[styles.totalAmount, { color: theme.primary }]}>
+          S/ {totalMonto.toFixed(2)}
         </Text>
       </View>
+    </View>
+  );
 
-      {/* Tarjetas de Desglose */}
-      <View style={[styles.breakdownCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
-        <Text style={[styles.sectionTitle, { color: theme.text }]}>Desglose del Turno</Text>
+  const btnShare = (
+    <AnimatedButton style={[styles.shareBtn, isDesktop && { marginHorizontal: 0 }]} onPress={handleShareCuadre}>
+      <Share2 size={18} color="#ffffff" />
+      <Text style={styles.shareBtnText}>COMPARTIR CUADRE POR WHATSAPP</Text>
+    </AnimatedButton>
+  );
 
-        <View style={[styles.rowItem, { borderBottomColor: theme.border }]}>
-          <View style={styles.rowLeft}>
-            <Ticket size={18} color="#2563eb" />
-            <Text style={[styles.rowLabel, { color: theme.text }]}>Entradas Vendidas</Text>
+  return (
+    <ScrollView contentContainerStyle={[styles.container, isDesktop && styles.containerDesktop]}>
+      {isDesktop ? (
+        <View style={styles.desktopRow}>
+          <View style={styles.desktopColLeft}>
+            {cardEfectivo}
+            {btnShare}
           </View>
-          <Text style={[styles.rowValue, { color: theme.text }]}>{totalEntradas} unid.</Text>
-        </View>
-
-        <View style={[styles.rowItem, { borderBottomColor: theme.border }]}>
-          <View style={styles.rowLeft}>
-            <Banknote size={18} color="#16a34a" />
-            <Text style={[styles.rowLabel, { color: theme.text }]}>Efectivo Cobrado</Text>
+          <View style={styles.desktopColRight}>
+            {cardBreakdown}
           </View>
-          <Text style={[styles.rowValue, { color: '#16a34a' }]}>S/ {totalEfectivo.toFixed(2)}</Text>
         </View>
-
-        <View style={[styles.rowItem, { borderBottomColor: theme.border }]}>
-          <View style={styles.rowLeft}>
-            <Smartphone size={18} color="#9333ea" />
-            <Text style={[styles.rowLabel, { color: theme.text }]}>Yape</Text>
-          </View>
-          <Text style={[styles.rowValue, { color: theme.text }]}>S/ {totalYape.toFixed(2)}</Text>
-        </View>
-
-        <View style={[styles.rowItem, { borderBottomColor: theme.border }]}>
-          <View style={styles.rowLeft}>
-            <Smartphone size={18} color="#0284c7" />
-            <Text style={[styles.rowLabel, { color: theme.text }]}>Plin</Text>
-          </View>
-          <Text style={[styles.rowValue, { color: theme.text }]}>S/ {totalPlin.toFixed(2)}</Text>
-        </View>
-
-        <View style={[styles.rowItem, { borderBottomColor: theme.border }]}>
-          <View style={styles.rowLeft}>
-            <CreditCard size={18} color="#d97706" />
-            <Text style={[styles.rowLabel, { color: theme.text }]}>Tarjeta / Banco</Text>
-          </View>
-          <Text style={[styles.rowValue, { color: theme.text }]}>S/ {totalOtros.toFixed(2)}</Text>
-        </View>
-
-        {/* Total General */}
-        <View style={styles.totalRow}>
-          <Text style={[styles.totalLabel, { color: theme.text }]}>Total Recaudado:</Text>
-          <Text style={[styles.totalAmount, { color: theme.primary }]}>
-            S/ {totalMonto.toFixed(2)}
-          </Text>
-        </View>
-      </View>
-
-      {/* Botón Compartir Cuadre por WhatsApp */}
-      <AnimatedButton style={styles.shareBtn} onPress={handleShareCuadre}>
-        <Share2 size={18} color="#ffffff" />
-        <Text style={styles.shareBtnText}>COMPARTIR CUADRE POR WHATSAPP</Text>
-      </AnimatedButton>
+      ) : (
+        <>
+          {cardEfectivo}
+          {cardBreakdown}
+          {btnShare}
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -153,6 +178,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 32,
+  },
+  containerDesktop: {
+    paddingHorizontal: 0,
+    paddingTop: 16,
+    paddingBottom: 48,
+    maxWidth: 960,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  desktopRow: {
+    flexDirection: 'row',
+    gap: 20,
+    alignItems: 'flex-start',
+  },
+  desktopColLeft: {
+    flex: 1,
+    minWidth: 320,
+  },
+  desktopColRight: {
+    flex: 1.2,
+    minWidth: 360,
   },
   mainCard: {
     borderRadius: 16,

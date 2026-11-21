@@ -6,6 +6,7 @@ import {
   FlatList,
   TouchableOpacity,
   RefreshControl,
+  useWindowDimensions,
 } from 'react-native';
 import { Ticket, User, CreditCard as IdCard, Clock, Image as ImageIcon } from 'lucide-react-native';
 import { VentaEntrada } from '../../types/entradas';
@@ -17,6 +18,7 @@ interface MisVentasTabProps {
   onRefresh: () => void;
   onVerComprobante: (url: string) => void;
   theme: any;
+  isDesktop?: boolean;
 }
 
 export default function MisVentasTab({
@@ -25,7 +27,10 @@ export default function MisVentasTab({
   onRefresh,
   onVerComprobante,
   theme,
+  isDesktop: propIsDesktop,
 }: MisVentasTabProps) {
+  const { width } = useWindowDimensions();
+  const isDesktop = propIsDesktop !== undefined ? propIsDesktop : width >= 800;
   if (ventas.length === 0 && !loading) {
     return (
       <View style={styles.emptyContainer}>
@@ -52,6 +57,7 @@ export default function MisVentasTab({
             borderColor: isAnulada ? '#fca5a5' : theme.border,
             opacity: isAnulada ? 0.6 : 1,
           },
+          isDesktop && styles.cardDesktop,
         ]}
       >
         <View style={styles.headerRow}>
@@ -152,10 +158,13 @@ export default function MisVentasTab({
 
   return (
     <FlatList
+      key={isDesktop ? 'desktop-grid-2' : 'mobile-list-1'}
       data={ventas}
       keyExtractor={(item) => item.id.toString()}
       renderItem={renderItem}
-      contentContainerStyle={styles.listContent}
+      numColumns={isDesktop ? 2 : 1}
+      columnWrapperStyle={isDesktop ? styles.columnWrapper : undefined}
+      contentContainerStyle={[styles.listContent, isDesktop && styles.listContentDesktop]}
       refreshControl={
         <RefreshControl refreshing={loading} onRefresh={onRefresh} colors={['#2563eb']} />
       }
@@ -169,6 +178,14 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 24,
   },
+  listContentDesktop: {
+    paddingHorizontal: 0,
+    paddingBottom: 40,
+  },
+  columnWrapper: {
+    gap: 14,
+    marginBottom: 14,
+  },
   card: {
     borderRadius: 14,
     padding: 14,
@@ -179,6 +196,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 3,
     elevation: 1,
+  },
+  cardDesktop: {
+    flex: 1,
+    marginBottom: 0,
   },
   headerRow: {
     flexDirection: 'row',

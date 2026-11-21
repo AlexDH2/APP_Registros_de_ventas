@@ -982,16 +982,19 @@ const styles = StyleSheet.create({
     marginTop: 14,
     borderWidth: 1.5,
     borderColor: '#bfdbfe',
+    gap: 8,
   },
   totalPreviewLabel: {
+    flex: 1,
     fontSize: 14,
     fontFamily: fonts.bold,
     color: '#1e40af',
   },
   totalPreviewAmount: {
-    fontSize: 24,
+    fontSize: 20,
     fontFamily: fonts.extraBold,
     color: '#1d4ed8',
+    flexShrink: 0,
   },
 
   // Asistentes List

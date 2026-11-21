@@ -12,6 +12,7 @@ import {
   Modal,
   TextInput,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -53,6 +54,8 @@ import ModalVerComprobante from '../components/entradas/admin/ModalVerComprobant
 
 export default function EntradasVentaScreen() {
   const { theme } = useAppTheme();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 960;
   const [modalAjustesVisible, setModalAjustesVisible] = useState<boolean>(false);
 
   // Sesión y Colaborador
@@ -220,111 +223,118 @@ export default function EntradasVentaScreen() {
       >
         {/* Header Superior */}
         <View style={[styles.topBar, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-            <ArrowLeft size={22} color={theme.text} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.topBarCenter} onPress={handleCambiarNombreColaborador}>
-            <Text style={[styles.topBarTitle, { color: theme.text }]}>Venta de Entradas</Text>
-            <Text style={[styles.topBarSub, { color: theme.textMuted }]} numberOfLines={1}>
-              Colaborador: {colaboradorNombre} ✎
-            </Text>
-          </TouchableOpacity>
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <TouchableOpacity
-              style={[
-                styles.qrHeaderBtn,
-                { backgroundColor: theme.primaryLight, borderColor: theme.border },
-              ]}
-              onPress={() => setModalQrPadres(true)}
-              activeOpacity={0.7}
-            >
-              <QrCode size={15} color={theme.primary} />
-              <Text style={[styles.qrHeaderBtnText, { color: theme.primary }]}>QR Fila</Text>
+          <View style={[styles.topBarInner, isDesktop && styles.topBarInnerDesktop]}>
+            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+              <ArrowLeft size={22} color={theme.text} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.refreshIconBtn} onPress={cargarDatos} disabled={loading}>
-              {loading ? (
-                <ActivityIndicator size="small" color={theme.primary} />
-              ) : (
-                <RefreshCw size={18} color={theme.textMuted} />
-              )}
+            <TouchableOpacity style={styles.topBarCenter} onPress={handleCambiarNombreColaborador}>
+              <Text style={[styles.topBarTitle, { color: theme.text }]}>Venta de Entradas</Text>
+              <Text style={[styles.topBarSub, { color: theme.textMuted }]} numberOfLines={1}>
+                Colaborador: {colaboradorNombre} ✎
+              </Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.refreshIconBtn}
-              onPress={() => setModalAjustesVisible(true)}
-              activeOpacity={0.7}
-            >
-              <Settings size={18} color={theme.textMuted} />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <TouchableOpacity
+                style={[
+                  styles.qrHeaderBtn,
+                  { backgroundColor: theme.primaryLight, borderColor: theme.border },
+                ]}
+                onPress={() => setModalQrPadres(true)}
+                activeOpacity={0.7}
+              >
+                <QrCode size={15} color={theme.primary} />
+                <Text style={[styles.qrHeaderBtnText, { color: theme.primary }]}>QR Fila</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.refreshIconBtn} onPress={cargarDatos} disabled={loading}>
+                {loading ? (
+                  <ActivityIndicator size="small" color={theme.primary} />
+                ) : (
+                  <RefreshCw size={18} color={theme.textMuted} />
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.refreshIconBtn}
+                onPress={() => setModalAjustesVisible(true)}
+                activeOpacity={0.7}
+              >
+                <Settings size={18} color={theme.textMuted} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
         {/* Tarjeta de Información del Evento (Extraída de BD) */}
-        <EventoHeaderCard
-          evento={evento}
-          metricas={metricas}
-          theme={theme}
-          onRefresh={cargarDatos}
-          loading={loading}
-        />
+        <View style={[styles.desktopMaxWidthWrapper, isDesktop && styles.desktopMaxWidthWrapperActive]}>
+          <EventoHeaderCard
+            evento={evento}
+            metricas={metricas}
+            theme={theme}
+            onRefresh={cargarDatos}
+            loading={loading}
+            isDesktop={isDesktop}
+          />
+        </View>
 
         {/* Selector de Pestañas (Tabs) */}
         <View style={[styles.tabsRow, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'VENTA' && { borderBottomColor: theme.primary }]}
-            onPress={() => setActiveTab('VENTA')}
-          >
-            <Ticket size={16} color={activeTab === 'VENTA' ? theme.primary : theme.textMuted} />
-            <Text
-              style={[
-                styles.tabBtnText,
-                { color: activeTab === 'VENTA' ? theme.primary : theme.textMuted },
-              ]}
-            >
-              Boletería
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tabBtn, activeTab === 'HISTORIAL' && { borderBottomColor: theme.primary }]}
-            onPress={() => setActiveTab('HISTORIAL')}
-          >
-            <Users size={16} color={activeTab === 'HISTORIAL' ? theme.primary : theme.textMuted} />
-            <Text
-              style={[
-                styles.tabBtnText,
-                { color: activeTab === 'HISTORIAL' ? theme.primary : theme.textMuted },
-              ]}
-            >
-              Mis Ventas ({misVentas.length})
-            </Text>
-          </TouchableOpacity>
-
-          {puedeVerCuadre && (
+          <View style={[styles.tabsRowInner, isDesktop && styles.tabsRowInnerDesktop]}>
             <TouchableOpacity
-              style={[styles.tabBtn, activeTab === 'CUADRE' && { borderBottomColor: theme.primary }]}
-              onPress={() => setActiveTab('CUADRE')}
+              style={[styles.tabBtn, activeTab === 'VENTA' && { borderBottomColor: theme.primary }]}
+              onPress={() => setActiveTab('VENTA')}
             >
-              <Wallet size={16} color={activeTab === 'CUADRE' ? theme.primary : theme.textMuted} />
+              <Ticket size={16} color={activeTab === 'VENTA' ? theme.primary : theme.textMuted} />
               <Text
                 style={[
                   styles.tabBtnText,
-                  { color: activeTab === 'CUADRE' ? theme.primary : theme.textMuted },
+                  { color: activeTab === 'VENTA' ? theme.primary : theme.textMuted },
                 ]}
               >
-                Mi Cuadre
+                Boletería
               </Text>
             </TouchableOpacity>
-          )}
+
+            <TouchableOpacity
+              style={[styles.tabBtn, activeTab === 'HISTORIAL' && { borderBottomColor: theme.primary }]}
+              onPress={() => setActiveTab('HISTORIAL')}
+            >
+              <Users size={16} color={activeTab === 'HISTORIAL' ? theme.primary : theme.textMuted} />
+              <Text
+                style={[
+                  styles.tabBtnText,
+                  { color: activeTab === 'HISTORIAL' ? theme.primary : theme.textMuted },
+                ]}
+              >
+                Mis Ventas ({misVentas.length})
+              </Text>
+            </TouchableOpacity>
+
+            {puedeVerCuadre && (
+              <TouchableOpacity
+                style={[styles.tabBtn, activeTab === 'CUADRE' && { borderBottomColor: theme.primary }]}
+                onPress={() => setActiveTab('CUADRE')}
+              >
+                <Wallet size={16} color={activeTab === 'CUADRE' ? theme.primary : theme.textMuted} />
+                <Text
+                  style={[
+                    styles.tabBtnText,
+                    { color: activeTab === 'CUADRE' ? theme.primary : theme.textMuted },
+                  ]}
+                >
+                  Mi Cuadre
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {/* Contenido de la Pestaña Activa */}
         {activeTab === 'VENTA' && (
           <ScrollView
-            contentContainerStyle={styles.scrollContent}
+            contentContainerStyle={[styles.scrollContent, isDesktop && styles.scrollContentDesktop]}
             keyboardShouldPersistTaps="handled"
           >
             {evento ? (
@@ -335,6 +345,7 @@ export default function EntradasVentaScreen() {
                 theme={theme}
                 procesando={procesando}
                 onEmitir={handleEmitirVenta}
+                isDesktop={isDesktop}
               />
             ) : (
               <View style={styles.noEventoBox}>
@@ -348,22 +359,28 @@ export default function EntradasVentaScreen() {
         )}
 
         {activeTab === 'HISTORIAL' && (
-          <MisVentasTab
-            ventas={misVentas}
-            loading={loading}
-            onRefresh={cargarDatos}
-            onVerComprobante={setComprobanteUrlModal}
-            theme={theme}
-          />
+          <View style={[styles.desktopMaxWidthWrapper, isDesktop && styles.desktopMaxWidthWrapperActive, { flex: 1 }]}>
+            <MisVentasTab
+              ventas={misVentas}
+              loading={loading}
+              onRefresh={cargarDatos}
+              onVerComprobante={setComprobanteUrlModal}
+              theme={theme}
+              isDesktop={isDesktop}
+            />
+          </View>
         )}
 
         {activeTab === 'CUADRE' && puedeVerCuadre && evento && (
-          <CuadreCajaTab
-            evento={evento}
-            colaboradorNombre={colaboradorNombre}
-            misVentas={misVentas}
-            theme={theme}
-          />
+          <View style={[styles.desktopMaxWidthWrapper, isDesktop && styles.desktopMaxWidthWrapperActive, { flex: 1 }]}>
+            <CuadreCajaTab
+              evento={evento}
+              colaboradorNombre={colaboradorNombre}
+              misVentas={misVentas}
+              theme={theme}
+              isDesktop={isDesktop}
+            />
+          </View>
         )}
       </KeyboardAvoidingView>
 
@@ -537,11 +554,33 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
+  },
+  topBarInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+  },
+  topBarInnerDesktop: {
+    maxWidth: 1200,
+    alignSelf: 'center',
+  },
+  desktopMaxWidthWrapper: {
+    width: '100%',
+  },
+  desktopMaxWidthWrapperActive: {
+    maxWidth: 1200,
+    alignSelf: 'center',
+  },
+  tabsRowInner: {
+    flexDirection: 'row',
+    width: '100%',
+  },
+  tabsRowInnerDesktop: {
+    maxWidth: 1200,
+    alignSelf: 'center',
   },
   backBtn: {
     padding: 6,
@@ -575,7 +614,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semiBold,
   },
   tabsRow: {
-    flexDirection: 'row',
     borderBottomWidth: 1,
     paddingHorizontal: 8,
   },
@@ -596,6 +634,13 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 8,
     paddingBottom: 24,
+  },
+  scrollContentDesktop: {
+    maxWidth: 1200,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 48,
   },
   noEventoBox: {
     padding: 32,

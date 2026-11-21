@@ -9,6 +9,7 @@ import {
   Alert,
   RefreshControl,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
@@ -235,50 +236,54 @@ export default function AdminEventosEntradasScreen() {
   };
 
   const eventoActivoActual = todosEventos.find((e) => e.estado === 'ACTIVO') || evento;
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.background }]}>
       {/* Top Bar */}
       <View style={[styles.topBar, { backgroundColor: theme.card, borderBottomColor: theme.border }]}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-          <ArrowLeft size={22} color={theme.text} />
-        </TouchableOpacity>
-
-        <View style={styles.topBarCenter}>
-          <Text style={[styles.topBarTitle, { color: theme.text }]}>
-            Control de Entradas & Eventos
-          </Text>
-          <Text style={[styles.topBarSub, { color: theme.textMuted }]}>
-            Panel Administrativo en Vivo
-          </Text>
-        </View>
-
-        <View style={styles.topBarActions}>
-          {evento && (
-            <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: theme.primaryLight }]}
-              onPress={abrirModalEditar}
-            >
-              <Settings size={18} color={theme.primary} />
-            </TouchableOpacity>
-          )}
-
-          <TouchableOpacity
-            style={styles.actionBtn}
-            onPress={() => cargarDatos(evento?.id)}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator size="small" color={theme.primary} />
-            ) : (
-              <RefreshCw size={18} color={theme.textMuted} />
-            )}
+        <View style={[styles.topBarContent, isDesktop && styles.topBarContentDesktop]}>
+          <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+            <ArrowLeft size={22} color={theme.text} />
           </TouchableOpacity>
+
+          <View style={styles.topBarCenter}>
+            <Text style={[styles.topBarTitle, { color: theme.text }]}>
+              Control de Entradas & Eventos
+            </Text>
+            <Text style={[styles.topBarSub, { color: theme.textMuted }]}>
+              Panel Administrativo en Vivo
+            </Text>
+          </View>
+
+          <View style={styles.topBarActions}>
+            {evento && (
+              <TouchableOpacity
+                style={[styles.actionBtn, { backgroundColor: theme.primaryLight }]}
+                onPress={abrirModalEditar}
+              >
+                <Settings size={18} color={theme.primary} />
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={styles.actionBtn}
+              onPress={() => cargarDatos(evento?.id)}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <RefreshCw size={18} color={theme.textMuted} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, isDesktop && styles.scrollContentDesktop]}
         refreshControl={
           <RefreshControl
             refreshing={loading}
@@ -289,8 +294,8 @@ export default function AdminEventosEntradasScreen() {
       >
         {/* Selector de Historial de Eventos */}
         {todosEventos.length > 0 && (
-          <View style={styles.eventosSelectorSection}>
-            <View style={styles.eventosSelectorHeader}>
+          <View style={[styles.eventosSelectorSection, isDesktop && { paddingHorizontal: 0 }]}>
+            <View style={[styles.eventosSelectorHeader, isDesktop && { paddingHorizontal: 0 }]}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <History size={14} color={theme.textMuted} />
                 <Text style={[styles.eventosSelectorLabel, { color: theme.textMuted }]}>
@@ -302,7 +307,7 @@ export default function AdminEventosEntradasScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.eventosPillsRow}
+              contentContainerStyle={[styles.eventosPillsRow, isDesktop && { paddingHorizontal: 0 }]}
             >
               {todosEventos.map((ev) => {
                 const isSelected = evento?.id === ev.id;
@@ -374,7 +379,7 @@ export default function AdminEventosEntradasScreen() {
 
         {/* Banner si se está viendo un evento FINALIZADO */}
         {evento && evento.estado !== 'ACTIVO' && (
-          <View style={styles.finalizadoBanner}>
+          <View style={[styles.finalizadoBanner, isDesktop && { marginHorizontal: 0 }]}>
             <View style={{ flex: 1 }}>
               <Text style={styles.finalizadoTitle}>Evento Finalizado (Solo Historial)</Text>
               <Text style={styles.finalizadoSub}>
@@ -399,6 +404,7 @@ export default function AdminEventosEntradasScreen() {
           onRefresh={() => cargarDatos(evento?.id)}
           loading={loading}
           onPressEdit={abrirModalEditar}
+          isDesktop={isDesktop}
         />
 
         {/* Botón destacado para Crear Nuevo Evento */}
@@ -410,6 +416,7 @@ export default function AdminEventosEntradasScreen() {
               borderColor: theme.primary,
               borderWidth: evento ? 1.5 : 0,
             },
+            isDesktop && styles.createEventBtnDesktop,
           ]}
           onPress={abrirModalCrearNuevo}
           activeOpacity={0.8}
@@ -431,18 +438,40 @@ export default function AdminEventosEntradasScreen() {
           metricas={metricas}
           colaboradoresActivos={colaboradores.length}
           theme={theme}
+          isDesktop={isDesktop}
         />
 
-        {/* Monitor en Vivo de los Colaboradores */}
-        <MonitorColaboradores colaboradores={colaboradores} theme={theme} />
-
-        {/* Auditoría Completa de Ventas */}
-        <AuditoriaVentas
-          ventas={ventas}
-          onVerComprobante={setComprobanteUrlGrande}
-          onAnularVenta={handleAnularVenta}
-          theme={theme}
-        />
+        {/* Sección Principal: En Desktop se divide en 2 Columnas dashboard */}
+        {isDesktop ? (
+          <View style={styles.desktopSplitRow}>
+            <View style={styles.desktopColLeft}>
+              <MonitorColaboradores
+                colaboradores={colaboradores}
+                theme={theme}
+                isDesktop={true}
+              />
+            </View>
+            <View style={styles.desktopColRight}>
+              <AuditoriaVentas
+                ventas={ventas}
+                onVerComprobante={setComprobanteUrlGrande}
+                onAnularVenta={handleAnularVenta}
+                theme={theme}
+                isDesktop={true}
+              />
+            </View>
+          </View>
+        ) : (
+          <>
+            <MonitorColaboradores colaboradores={colaboradores} theme={theme} />
+            <AuditoriaVentas
+              ventas={ventas}
+              onVerComprobante={setComprobanteUrlGrande}
+              onAnularVenta={handleAnularVenta}
+              theme={theme}
+            />
+          </>
+        )}
       </ScrollView>
 
       {/* Modal Configuración / Creación de Evento */}
@@ -479,12 +508,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderBottomWidth: 1,
+  },
+  topBarContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
     gap: 8,
+  },
+  topBarContentDesktop: {
+    maxWidth: 1200,
+    alignSelf: 'center',
   },
   backBtn: {
     padding: 6,
@@ -527,6 +563,32 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingBottom: 28,
+  },
+  scrollContentDesktop: {
+    maxWidth: 1200,
+    width: '100%',
+    alignSelf: 'center',
+    paddingHorizontal: 24,
+    paddingBottom: 48,
+  },
+  desktopSplitRow: {
+    flexDirection: 'row',
+    gap: 16,
+    alignItems: 'flex-start',
+    marginTop: 4,
+  },
+  desktopColLeft: {
+    width: 380,
+  },
+  desktopColRight: {
+    flex: 1,
+  },
+  createEventBtnDesktop: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 20,
+    marginHorizontal: 0,
+    marginTop: 8,
+    marginBottom: 12,
   },
   eventosSelectorSection: {
     paddingTop: 10,

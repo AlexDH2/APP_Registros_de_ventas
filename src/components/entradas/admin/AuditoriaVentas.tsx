@@ -26,6 +26,7 @@ interface AuditoriaVentasProps {
   onVerComprobante: (url: string) => void;
   onAnularVenta: (ventaId: number, motivo: string) => Promise<void>;
   theme: any;
+  isDesktop?: boolean;
 }
 
 export default function AuditoriaVentas({
@@ -33,6 +34,7 @@ export default function AuditoriaVentas({
   onVerComprobante,
   onAnularVenta,
   theme,
+  isDesktop = false,
 }: AuditoriaVentasProps) {
   const [busqueda, setBusqueda] = useState<string>('');
   const [ventaParaAnular, setVentaParaAnular] = useState<VentaEntrada | null>(null);
@@ -80,7 +82,13 @@ export default function AuditoriaVentas({
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.card, borderColor: theme.border },
+        isDesktop && { marginHorizontal: 0 },
+      ]}
+    >
       <View style={styles.header}>
         <Ticket size={16} color={theme.primary} />
         <Text style={[styles.title, { color: theme.text }]}>

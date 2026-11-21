@@ -36,7 +36,7 @@ function NavigationStack() {
         <Stack.Screen name="seller_sedes" options={{ title: 'Mis Sedes', headerBackVisible: false }} />
         <Stack.Screen name="logistica_sede" options={{ title: 'Logística de Sede' }} />
         <Stack.Screen name="logistica_dashboard" options={{ title: 'Panel de Logística', headerBackVisible: false }} />
-        <Stack.Screen name="admin/dashboard" options={{ title: 'Panel Maestro', headerBackVisible: false }} />
+        <Stack.Screen name="admin/dashboard" options={{ title: 'Panel Maestro', headerBackVisible: false, headerShown: false }} />
         <Stack.Screen name="admin/almacen_central" options={{ title: 'Almacén Central' }} />
         <Stack.Screen name="admin/pedidos_logistica" options={{ title: 'Pedidos de Sedes' }} />
         <Stack.Screen name="admin/metricas_logistica" options={{ title: 'Métricas & Proyección' }} />

@@ -615,6 +615,44 @@ export async function buscarPreRegistroPorCodigo(
 }
 
 /**
+ * Busca pre-registros por DNI, Nombre o Código para recuperar pases en puerta.
+ * Retorna lista de coincidencias para que el colaborador seleccione la correcta.
+ */
+export async function buscarPreRegistrosPorDniONombre(
+  termino: string,
+  eventoId?: number
+): Promise<PreRegistroEntrada[]> {
+  const limpio = (termino || '').trim();
+  if (!limpio) return [];
+
+  let query = supabase.from('pre_registros_entradas').select('*');
+  if (eventoId) {
+    query = query.eq('evento_id', eventoId);
+  }
+
+  const codigoNormalizado = limpio.toUpperCase();
+  const codigoConPrefijo = codigoNormalizado.startsWith('CCL-')
+    ? codigoNormalizado
+    : `CCL-${codigoNormalizado.padStart(4, '0')}`;
+
+  const { data, error } = await query
+    .or(`codigo.eq.${codigoNormalizado},codigo.eq.${codigoConPrefijo},dni_titular.ilike.%${limpio}%,nombre_titular.ilike.%${limpio}%`)
+    .order('id', { ascending: false })
+    .limit(10);
+
+  if (error || !data) {
+    console.warn('Error al buscar pre-registros por DNI/Nombre:', error);
+    return [];
+  }
+
+  return data.map((item) => ({
+    ...item,
+    precio_unitario: Number(item.precio_unitario),
+    monto_total: Number(item.monto_total),
+  })) as PreRegistroEntrada[];
+}
+
+/**
  * Marca el pre-registro como cobrado cuando el personal en boletería emite los tickets.
  */
 export async function marcarPreRegistroCobrado(

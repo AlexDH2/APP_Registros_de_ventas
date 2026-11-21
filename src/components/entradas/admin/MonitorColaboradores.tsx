@@ -7,15 +7,23 @@ import { fonts } from '../../../theme';
 interface MonitorColaboradoresProps {
   colaboradores: ColaboradorResumen[];
   theme: any;
+  isDesktop?: boolean;
 }
 
 export default function MonitorColaboradores({
   colaboradores,
   theme,
+  isDesktop = false,
 }: MonitorColaboradoresProps) {
   if (colaboradores.length === 0) {
     return (
-      <View style={[styles.emptyCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+      <View
+        style={[
+          styles.emptyCard,
+          { backgroundColor: theme.card, borderColor: theme.border },
+          isDesktop && { marginHorizontal: 0 },
+        ]}
+      >
         <Users size={28} color={theme.textMuted} />
         <Text style={[styles.emptyText, { color: theme.textMuted }]}>
           No hay ventas registradas por colaboradores aún.
@@ -27,7 +35,13 @@ export default function MonitorColaboradores({
   const maxTotal = Math.max(...colaboradores.map((c) => c.total), 1);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.card, borderColor: theme.border }]}>
+    <View
+      style={[
+        styles.container,
+        { backgroundColor: theme.card, borderColor: theme.border },
+        isDesktop && { marginHorizontal: 0 },
+      ]}
+    >
       <View style={styles.header}>
         <Users size={16} color={theme.primary} />
         <Text style={[styles.title, { color: theme.text }]}>
